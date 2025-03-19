@@ -47,7 +47,7 @@ def get_user_input(chat_id: int):
 
     response = user_inputs[chat_id]["input"]
     if response is None:
-        print("Ответа не получили. Говорим лламе не использовать больше никакой инструментарий")
+        print("Ответа не получили. Говорим ИИ не использовать больше никакой инструментарий")
         return "Stop the operation, don't ask for human input again, don't use any of the tools."
     del user_inputs[chat_id]
     return response
@@ -57,9 +57,9 @@ def get_input_func_for_chat_id(chat_id: int):
     return lambda: get_user_input(chat_id)
 
 
-@bot.message_handler(func=lambda message: message.chat.id in user_inputs and message.text not in ["/new", "/stop"])
+@bot.message_handler(func=lambda message: message.chat.id in user_inputs and message.text not in ["/new", "/end"])
 def handle_input(message: Message, state: StateContext):
-    print(f"Получили сообщение-ответ, будучи в диалоге. {state.get()} {user_inputs}")
+    print(f"Получили сообщение-ответ, будучи в диалоге.")
     chat_id = message.chat.id
     if state.get() is None:
         user_inputs[chat_id]["event"].set()
@@ -94,31 +94,35 @@ def answer_in_conversation(message: Message, state: StateContext):
         else:
             print("Поскольку диалог завершён, не отправляем последнее сообщение (скорее всего оно о том, что ИИ больше не будет использовать инструментарий)")
 
-
 @bot.message_handler(commands=['new'])
 def start_new_conversation(message: Message, state: StateContext):
     print("Получили команду /new")
+
+    if state.get() is not None:
+        bot.send_message(message.chat.id, "Сначала закончи прошлый диалог - /end.")
+        return
+
     state.set(States.in_conversation)
 
     with state.data() as data:
         data["messages"] = [{"role": "system", "content": "Create spice circuit. "
                                                           "First of all, ask for circuit description like this: \"Привет! Расскажи, пожалуйста, какую схему ты хочешь создать.\". "
-                                                          "Then make netlist and send it to user. Do not explain netlist. Interact in Russian."}]
+                                                          "Then make .asc file virtually and send its contents to user. Do not explain netlist. Interact in Russian."}]
 
     answer_in_conversation(message, state)
 
 
-@bot.message_handler(func=lambda message: message.text not in ["/new", "/stop"], state=States.in_conversation)
+@bot.message_handler(func=lambda message: message.text not in ["/new", "/end"], state=States.in_conversation)
 def handle_conversation_message(message: Message, state: StateContext):
-    print(f"Получили сообщение, будучи в диалоге. {state.get()}")
+    print(f"Получили сообщение, будучи в диалоге.")
     with state.data() as data:
         data["messages"].append({"role": "user", "content": message.text})
     answer_in_conversation(message, state)
 
 
-@bot.message_handler(commands=['stop'], state=States.in_conversation)
-def stop_conversation(message: Message, state: StateContext):
-    print(f"Получили команду /stop, будучи в диалоге. {state.get()}")
+@bot.message_handler(commands=['end'], state=States.in_conversation)
+def end_conversation(message: Message, state: StateContext):
+    print(f"Получили команду /end, будучи в диалоге.")
     if message.chat.id in user_inputs.keys():
         user_inputs[message.chat.id]["event"].set()
     state.delete()
@@ -155,7 +159,7 @@ def send_start_message(message):
                      "или голосовому описанию.\n\nЧат-бот работает по "
                      "подобию ChatGPT, то есть, общение происходит "
                      "в диалогах. Чтобы начать новый диалог с ботом, "
-                     "пропиши /new. Чтобы закончить диалог, напиши /stop.")
+                     "пропиши /new. Чтобы закончить диалог, напиши /end.")
 
 
 # Запускаем бота
