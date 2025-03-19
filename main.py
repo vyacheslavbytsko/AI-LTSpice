@@ -3,6 +3,7 @@ import threading
 
 import telebot
 from langchain_community.tools import HumanInputRun
+from langchain_core.tools import create_retriever_tool
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
 from telebot import StateMemoryStorage
@@ -11,10 +12,14 @@ from telebot.states import StatesGroup, State
 from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
-from misc import get_groq_key, get_tg_token
+from misc import get_groq_key, get_tg_token, get_split_circuits, get_vector_store, get_retriever
 
 groq_key, tg_token = get_groq_key(), get_tg_token()
 os.environ["GROQ_API_KEY"] = groq_key
+
+split_circuits = get_split_circuits()
+vector_store = get_vector_store(split_circuits)
+retriever = get_retriever(vector_store)
 
 state_storage = StateMemoryStorage()
 bot = telebot.TeleBot(tg_token, parse_mode="Markdown", state_storage=state_storage, use_class_middlewares=True)
@@ -77,9 +82,14 @@ def answer_in_conversation(message: Message, state: StateContext):
             HumanInputRun(
                 prompt_func=get_prompt_func_for_chat_id(bot, message.chat.id),
                 input_func=get_input_func_for_chat_id(message.chat.id)
+            ),
+            create_retriever_tool(
+                retriever,
+                "circuits description",
+                "Searches and returns circuits",
             )
             #spice_tool
-        ]
+        ], debug=True
     )
 
     with state.data() as data:
@@ -105,9 +115,9 @@ def start_new_conversation(message: Message, state: StateContext):
     state.set(States.in_conversation)
 
     with state.data() as data:
-        data["messages"] = [{"role": "system", "content": "Create spice circuit. "
-                                                          "First of all, ask for circuit description like this: \"Привет! Расскажи, пожалуйста, какую схему ты хочешь создать.\". "
-                                                          "Then make .asc file virtually and send its contents to user. Do not explain netlist. Interact in Russian."}]
+        data["messages"] = [{"role": "system", "content": "Ты инженер, который проектирует LTspice схемы. Используй доступные инструменты для поиска или генерации схем. Спроси у пользователя, какую именно схему ему нужно создать."}]
+        #data["messages"] = [{"role": "system", "content": "Ask for circuit description like this: \"Привет! Расскажи, пожалуйста, какую схему ты хочешь создать.\". "
+        #                                                  "Then search similar circuits, analyze their contents, understand, из чего состоят эти записи, и создай свою circuit based on the provided description. Then send circuit contents to the user, because the user doesn't see Tool Messages. Interact in Russian."}]
 
     answer_in_conversation(message, state)
 
