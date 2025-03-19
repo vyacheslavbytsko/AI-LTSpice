@@ -9,7 +9,7 @@ from telebot import StateMemoryStorage
 from telebot.custom_filters import StateFilter
 from telebot.states import StatesGroup, State
 from telebot.states.sync import StateContext, StateMiddleware
-from telebot.types import Message
+from telebot.types import Message, BotCommand
 
 from misc import get_groq_key, get_tg_token
 
@@ -167,4 +167,9 @@ def send_start_message(message):
 bot.add_custom_filter(StateFilter(bot))
 bot.setup_middleware(StateMiddleware(bot))
 print("Бот запущен!")
+bot.set_my_commands([
+    BotCommand("start", "Стартовое сообщение"),
+    BotCommand("new", "Начать новый диалог"),
+    BotCommand("end", "Завершить диалог")
+])
 bot.infinity_polling()
