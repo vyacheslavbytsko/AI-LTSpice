@@ -14,8 +14,8 @@ from telebot.types import Message, BotCommand
 
 from misc import get_groq_key, get_tg_token, get_rate_limiter, make_netlists, get_netlists_descriptions, \
     get_split_netlists_descriptions, get_netlists_descriptions_vector_store, get_vector_store_as_retriever, \
-    multiline_input, description_to_filenames_tool, filename_to_full_circuit_description_tool
-from spice_tools import spice_tool
+    multiline_input, description_to_filenames_tool, filename_to_full_circuit_description_tool, filename_to_netlist_tool
+
 
 groq_key, tg_token = get_groq_key(), get_tg_token()
 os.environ["GROQ_API_KEY"] = groq_key
@@ -36,11 +36,12 @@ agent = create_react_agent(
             input_func=multiline_input
         ),
         description_to_filenames_tool(netlists_descriptions_vector_store),
-        filename_to_full_circuit_description_tool()
+        filename_to_netlist_tool()
+        #filename_to_full_circuit_description_tool()
     ], debug=True
 )
 
-messages = [{"role": "system", "content": "Ты инженер LTSpice. Спроси у пользователя, какую схему он хочет получить, и отправь полное описание этой схемы. Используй доступные инструменты."}]
+messages = [{"role": "system", "content": "Ты инженер LTSpice. Спроси у пользователя, какую схему он хочет получить, и отправь netlist этой схемы. Используй доступные инструменты."}]
 
 
 result = agent.invoke({

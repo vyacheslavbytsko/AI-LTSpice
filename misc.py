@@ -135,11 +135,11 @@ def description_to_filenames_tool(vector_store: FAISS):
         for relevant_description in relevant_descriptions:
             relevant_descriptions_text += f"Filename \"{relevant_description.metadata["description_filename"]}\": \"{relevant_description.page_content}\"\n\n"
 
-        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get full description of the circuit."
+        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit."
 
     return Tool(
         name="description_to_filenames",
-        description="Searches and returns filenames and incomplete descriptions of circuits which fits best to the description provided by human to then get full description using another tool.",
+        description="Searches and returns filenames and incomplete descriptions of circuits which fits best to the description provided by human to then get netlist using another tool.",
         func=lambda query: get_relevant_filenames_and_descriptions(query)
     )
 
@@ -150,5 +150,15 @@ def filename_to_full_circuit_description_tool():
     return Tool(
         name="filename_to_full_circuit_description",
         description="Returns the full description of circuit based on the filename of description.",
+        func=lambda query: get_content(query)
+    )
+
+
+def filename_to_netlist_tool():
+    def get_content(query):
+        return open(query.removesuffix(".desc.txt")+".net").read()
+    return Tool(
+        name="filename_to_netlist",
+        description="Returns the netlist of circuit based on the filename of description.",
         func=lambda query: get_content(query)
     )
