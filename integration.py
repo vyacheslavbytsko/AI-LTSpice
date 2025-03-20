@@ -1,5 +1,6 @@
 import os
 import threading
+
 import telebot
 from langchain_community.tools import HumanInputRun
 from langchain_core.tools import create_retriever_tool
@@ -11,16 +12,16 @@ from telebot.states import StatesGroup, State
 from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
-from misc import  get_rate_limiter
+from misc import get_rate_limiter, get_groq_key, get_tg_token
 from ltspice_code_gen import process_circuit_description  
 
-groq_key, tg_token = "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", "7826962343:AAGaCEyzBATsC4ZKI0r_yGn44r0Fz4VTQhY"
+groq_key, tg_token = get_groq_key(), get_tg_token()
 os.environ["GROQ_API_KEY"] = groq_key
 
 rate_limiter = get_rate_limiter()
 llm = ChatGroq(model="llama3-70b-8192", temperature=1)
 
-bot = telebot.TeleBot(tg_token, parse_mode="Markdown")
+bot = telebot.TeleBot(tg_token, parse_mode="Markdown", use_class_middlewares=True)
 
 
 class States(StatesGroup):
@@ -30,9 +31,10 @@ class States(StatesGroup):
 def handle_circuit_request(message: Message, state: StateContext):
     description = message.text
     bot.send_message(message.chat.id, "Генерирую схему...")
-    asc_file, simulation_result = process_circuit_description(description)
+    asc_file, simulation_result = process_circuit_description(description, llm)
     bot.send_document(message.chat.id, open(asc_file, "rb"))
     bot.send_message(message.chat.id, f"Результат симуляции: {simulation_result}")
+
 
 
 @bot.message_handler(commands=['new'])
