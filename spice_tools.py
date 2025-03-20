@@ -5,7 +5,6 @@ from spicelib.simulators.ltspice_simulator import LTspice
 
 @tool
 def spice_tool(asc: str) -> str:
-    """Run circuit simulation with LTspice using .asc file contents."""
 
     asc_file: str = "temp/circuit.asc"
 
