@@ -12,18 +12,74 @@ from telebot.states import StatesGroup, State
 from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
-from misc import get_groq_key, get_tg_token, get_split_circuits, get_vector_store, get_retriever
+from misc import get_groq_key, get_tg_token, get_rate_limiter, make_netlists, get_netlists_descriptions, \
+    get_split_netlists_descriptions, get_netlists_descriptions_vector_store, get_vector_store_as_retriever, \
+    multiline_input, description_to_filenames_tool, filename_to_full_circuit_description_tool
+from spice_tools import spice_tool
 
 groq_key, tg_token = get_groq_key(), get_tg_token()
 os.environ["GROQ_API_KEY"] = groq_key
 
-split_circuits = get_split_circuits()
+rate_limiter = get_rate_limiter()
+llm = ChatGroq(model="llama3-70b-8192", temperature=1)
+llm_limited = ChatGroq(model="llama3-70b-8192", temperature=1, rate_limiter=rate_limiter)
+
+make_netlists()
+netlists_descriptions = get_netlists_descriptions(llm_limited)
+split_netlists_descriptions = get_split_netlists_descriptions(netlists_descriptions)
+netlists_descriptions_vector_store = get_netlists_descriptions_vector_store(split_netlists_descriptions)
+
+agent = create_react_agent(
+    llm,
+    [
+        HumanInputRun(
+            input_func=multiline_input
+        ),
+        description_to_filenames_tool(netlists_descriptions_vector_store),
+        filename_to_full_circuit_description_tool()
+    ], debug=True
+)
+
+messages = [{"role": "system", "content": "Ты инженер LTSpice. Спроси у пользователя, какую схему он хочет получить, и отправь полное описание этой схемы. Используй доступные инструменты."}]
+
+
+result = agent.invoke({
+    "messages": messages
+})
+
+print(result["messages"][-1].content)
+
+"""circuits = get_circuits()
+split_circuits = get_split_circuits(circuits)
 vector_store = get_vector_store(split_circuits)
 retriever = get_retriever(vector_store)
 
-state_storage = StateMemoryStorage()
-bot = telebot.TeleBot(tg_token, parse_mode="Markdown", state_storage=state_storage, use_class_middlewares=True)
-llm = ChatGroq(model="llama3-70b-8192", temperature=0.3)
+#state_storage = StateMemoryStorage()
+#bot = telebot.TeleBot(tg_token, parse_mode="Markdown", state_storage=state_storage, use_class_middlewares=True)
+
+
+messages = [{"role": "system", "content": "Ты инженер, который проектирует LTspice схемы (.asc файлы). Спроси у пользователя, какую именно схему ему нужно создать, сгенерируй её и отправь её пользователю. Используй доступные инструменты для генерации схем."}]
+
+agent = create_react_agent(
+    llm,
+    [
+        HumanInputRun(
+            input_func=multiline_input
+        ),
+        create_retriever_tool(
+            retriever,
+            "circuits description",
+            "Searches and returns circuits",
+        ),
+        spice_tool
+    ]#, debug=True
+)
+
+result = agent.invoke({
+    "messages": messages
+})
+
+print(result["messages"][-1].content)
 
 user_inputs = {}
 
@@ -87,8 +143,8 @@ def answer_in_conversation(message: Message, state: StateContext):
                 retriever,
                 "circuits description",
                 "Searches and returns circuits",
-            )
-            #spice_tool
+            ),
+            spice_tool
         ], debug=True
     )
 
@@ -115,7 +171,7 @@ def start_new_conversation(message: Message, state: StateContext):
     state.set(States.in_conversation)
 
     with state.data() as data:
-        data["messages"] = [{"role": "system", "content": "Ты инженер, который проектирует LTspice схемы. Используй доступные инструменты для поиска или генерации схем. Спроси у пользователя, какую именно схему ему нужно создать."}]
+        data["messages"] = [{"role": "system", "content": "Ты инженер, который проектирует LTspice схемы (.asc файлы). Спроси у пользователя, какую именно схему ему нужно создать, сгенерируй её и отправь её пользователю. Используй доступные инструменты для генерации схем."}]
         #data["messages"] = [{"role": "system", "content": "Ask for circuit description like this: \"Привет! Расскажи, пожалуйста, какую схему ты хочешь создать.\". "
         #                                                  "Then search similar circuits, analyze their contents, understand, из чего состоят эти записи, и создай свою circuit based on the provided description. Then send circuit contents to the user, because the user doesn't see Tool Messages. Interact in Russian."}]
 
@@ -124,7 +180,7 @@ def start_new_conversation(message: Message, state: StateContext):
 
 @bot.message_handler(func=lambda message: message.text not in ["/new", "/end"], state=States.in_conversation)
 def handle_conversation_message(message: Message, state: StateContext):
-    print(f"Получили сообщение, будучи в диалоге.")
+    print(f"Получили сообщение, будучи в диалоге. {state.get()}")
     with state.data() as data:
         data["messages"].append({"role": "user", "content": message.text})
     answer_in_conversation(message, state)
@@ -182,4 +238,4 @@ bot.set_my_commands([
     BotCommand("new", "Начать новый диалог"),
     BotCommand("end", "Завершить диалог")
 ])
-bot.infinity_polling()
+bot.infinity_polling()"""
