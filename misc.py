@@ -120,7 +120,7 @@ def get_netlists_descriptions_vector_store(split_netlists_descriptions) -> FAISS
     return FAISS.load_local("netlists_descriptions_vector_store", emb_model, allow_dangerous_deserialization=True)
 
 
-def description_to_filenames_tool(vector_store: FAISS):
+def simple_circuits_description_to_filenames_tool(vector_store: FAISS):
 
     def get_relevant_filenames_and_descriptions(query):
         retriever = vector_store.as_retriever(

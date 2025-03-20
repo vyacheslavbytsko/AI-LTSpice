@@ -1,20 +1,12 @@
 import os
-import threading
 
-import telebot
 from langchain_community.tools import HumanInputRun
-from langchain_core.tools import create_retriever_tool
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
-from telebot import StateMemoryStorage
-from telebot.custom_filters import StateFilter
-from telebot.states import StatesGroup, State
-from telebot.states.sync import StateContext, StateMiddleware
-from telebot.types import Message, BotCommand
 
 from misc import get_groq_key, get_tg_token, get_rate_limiter, make_netlists, get_netlists_descriptions, \
-    get_split_netlists_descriptions, get_netlists_descriptions_vector_store, get_vector_store_as_retriever, \
-    multiline_input, description_to_filenames_tool, filename_to_full_circuit_description_tool, filename_to_netlist_tool
+    get_split_netlists_descriptions, get_netlists_descriptions_vector_store, \
+    multiline_input, simple_circuits_description_to_filenames_tool, filename_to_netlist_tool
 
 
 groq_key, tg_token = get_groq_key(), get_tg_token()
@@ -35,12 +27,19 @@ agent = create_react_agent(
         HumanInputRun(
             input_func=multiline_input
         ),
-        description_to_filenames_tool(netlists_descriptions_vector_store),
-        filename_to_netlist_tool()
+        # TODO: description_to_simple_circuits_descriptions_tool(),
+        simple_circuits_description_to_filenames_tool(netlists_descriptions_vector_store),
+        filename_to_netlist_tool(),
+        # TODO: combine_netlists_tool(),
+        # TODO: netlist_to_asc_file_tool()
     ], debug=True
 )
 
-messages = [{"role": "system", "content": "Ты инженер LTSpice. Спроси у пользователя, какую схему он хочет получить, и отправь netlist этой схемы. Используй доступные инструменты."}]
+messages = [{"role": "system", "content": "Ты инженер LTSpice. Спроси у пользователя, "
+                                          "какую схему он хочет получить, раздели её на "
+                                          "простые схемы, получи netlist'ы каждой, объедини "
+                                          "netlist'ы, преобразуй netlist в .asc файл и отправь "
+                                          "этот файл пользователю. Используй доступные инструменты."}]
 
 
 result = agent.invoke({
