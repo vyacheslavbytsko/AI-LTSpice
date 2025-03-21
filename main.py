@@ -31,14 +31,14 @@ agent = create_react_agent(
         simple_circuits_description_to_filenames_tool(netlists_descriptions_vector_store),
         filename_to_netlist_tool(),
         # TODO: combine_netlists_tool(),
-        # TODO: netlist_to_asc_file_tool()
+        # TODO: check_for_errors_tool()
     ], debug=True
 )
 
 messages = [{"role": "system", "content": "Ты инженер LTSpice. Спроси у пользователя, "
                                           "какую схему он хочет получить, раздели её на "
                                           "простые схемы, получи netlist'ы каждой, объедини "
-                                          "netlist'ы, преобразуй netlist в .asc файл и отправь "
+                                          "netlist'ы, проверь netlist на ошибки и отправь "
                                           "этот файл пользователю. Используй доступные инструменты."}]
 
 
