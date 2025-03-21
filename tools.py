@@ -1,3 +1,4 @@
+import base64
 import io
 
 from langchain_community.vectorstores import FAISS
@@ -48,7 +49,7 @@ def simple_circuits_description_to_filenames_tool(vector_store: FAISS):
         for relevant_description in relevant_descriptions:
             relevant_descriptions_text += f"Filename \"{relevant_description.metadata["description_filename"]}\": \"{relevant_description.page_content}\"\n\n"
 
-        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit. Be aware - those parts were found by using vector store, so if you don't like my answer, you can retry search by providing more specific description. You can ask user for specific description."
+        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit. Be aware - those parts were found by using vector store, so if you don't like my answer, reask user for more specific description. DO NOT make user choose filename. Choose by yourself. Choose by yourself."
 
     return Tool(
         name="description_to_filenames",
@@ -68,14 +69,19 @@ def filename_to_full_circuit_description_tool():
     )
 
 
-def filename_to_netlist_tool():
-    def get_content(query):
-        return f"Here's the netlist of filename:\n\n```{open(query.removesuffix(".desc.txt") + ".net").read()}```\n\nYou can now convert it to the .asc file."
+def filename_to_netlist_b64_tool():
+    def filename_to_netlist_b64(query):
+        return (f"Here's the base64 representation of netlist:\n\n```"
+                f"{base64.b64encode(
+                    open(query.removesuffix(".desc.txt") + ".net")
+                    .read()
+                    .encode("utf-8")
+                ).decode("utf-8")}```\n\nYou can now convert it to the .asc file or send it to the user.")
 
     return Tool(
-        name="filename_to_netlist",
-        description="Returns the netlist of circuit based on the filename of description.",
-        func=lambda query: get_content(query)
+        name="filename_to_netlist_b64",
+        description="Returns the base64 representation of netlist of circuit based on the filename of description.",
+        func=lambda query: filename_to_netlist_b64(query)
     )
 
 def combine_netlists_tool(llm):
@@ -267,14 +273,15 @@ def send_asc_to_user_tool(chat_id: int, bot: TeleBot):
     )
 
 
-def send_netlist_to_user_tool(chat_id: int, bot: TeleBot):
+def send_netlist_b64_to_user_tool(chat_id: int, bot: TeleBot):
 
-    def send_netlist_to_user(chat_id: int, bot: TeleBot, netlist: str):
+    def send_netlist_b64_to_user(chat_id: int, bot: TeleBot, netlist: str):
         print("!!!!!!!")
         print(netlist)
         print("!!!!!!!")
 
-        file_obj = io.BytesIO(netlist.encode("utf-8"))
+        netlist_str = base64.b64decode(netlist.encode("utf-8")).decode("utf-8")
+        file_obj = io.BytesIO(netlist_str.encode("utf-8"))
         file_obj.name = "circuit.net"
         bot.send_document(chat_id, file_obj)
 
@@ -282,7 +289,7 @@ def send_netlist_to_user_tool(chat_id: int, bot: TeleBot):
 
     return Tool(
         name="send_netlist_to_user",
-        description="Sends netlist as a file to the user.",
-        func=lambda asc_file_content: send_netlist_to_user(chat_id, bot, asc_file_content)
+        description="Sends base64 representation of netlist as a file to the user.",
+        func=lambda asc_file_content: send_netlist_b64_to_user(chat_id, bot, asc_file_content)
     )
 
