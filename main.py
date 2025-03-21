@@ -25,7 +25,8 @@ split_netlists_descriptions = get_split_netlists_descriptions(netlists_descripti
 netlists_descriptions_vector_store = get_netlists_descriptions_vector_store(split_netlists_descriptions)
 
 system_message = SystemMessage("Ты инженер LTSpice. Спроси у пользователя, "
-                               "какую схему он хочет получить, получи netlist этой схемы и отправь "
+                               "какую схему он хочет получить, получи netlist этой схемы, "
+                               "преобразуй netlist в .asc файл и отправь "
                                "этот файл пользователю, затем напиши пользователю сообщение "
                                "в духе \"Ура, всё получилось!\". Используй доступные инструменты. "
                                "Когда пользователь сообщает, что ты что-то сделал неверно, "

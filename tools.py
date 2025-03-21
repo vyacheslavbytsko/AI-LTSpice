@@ -35,7 +35,7 @@ def description_to_simple_circuits_descriptions_tool(llm, known_circuits):
     )
 
 
-def simple_circuits_description_to_filenames_tool(vector_store: FAISS):
+def simple_circuit_description_to_filename_tool(vector_store: FAISS):
     def get_relevant_filenames_and_descriptions(query):
         retriever = vector_store.as_retriever(
             search_type="similarity",
@@ -115,7 +115,7 @@ def combine_netlists_tool(llm):
     )
 
 
-def netlist_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
+def netlist_b64_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
                         directive_text_coords: str = "TEXT 450 300 Left 2",
                         comment_text_default: str = "TEXT 80 -250 Left 4"):
     def net_to_asc(net_content: str,
@@ -243,17 +243,17 @@ def netlist_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
         asc_lines.extend(auto_flag_blocks)
         asc_lines.extend(auto_wire_blocks)
         asc_lines.extend(comp_blocks)
-        asc_lines.extend(text_blocks)
+        asc_lines.extend(list(map(lambda x: x.replace("\\n", "\\\\n"), text_blocks)))
 
         return "\n".join(asc_lines)
 
-    def net_to_asc_with_description(net_content: str) -> str:
-        return f"Here's the .asc file contents:\n\n```{net_to_asc(net_content)}```"
+    def netlist_b64_to_asc_with_description(netlist: str) -> str:
+        return f"Here's the .asc file contents:\n\n{net_to_asc(base64.b64decode(netlist.encode("utf-8")).decode("utf-8"))}"
 
     return Tool(
         name="netlist_to_asc",
-        description="Converts netlists content (NOT FILENAME!!! and not comment (a string starting with *); WHOLE NETLIST) to .asc file content.",
-        func=lambda query: net_to_asc_with_description(query)
+        description="Converts base64 representation of netlist to .asc file content.",
+        func=lambda query: netlist_b64_to_asc_with_description(query)
     )
 
 

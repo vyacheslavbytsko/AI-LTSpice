@@ -13,9 +13,9 @@ from telebot.states import StatesGroup, State
 from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
-from tools import netlist_to_asc_tool, simple_circuits_description_to_filenames_tool, \
+from tools import simple_circuit_description_to_filename_tool, \
     description_to_simple_circuits_descriptions_tool, combine_netlists_tool, send_asc_to_user_tool, \
-    filename_to_netlist_b64_tool, send_netlist_b64_to_user_tool
+    filename_to_netlist_b64_tool, send_netlist_b64_to_user_tool, netlist_b64_to_asc_tool
 
 
 class States(StatesGroup):
@@ -70,13 +70,12 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                     input_func=get_input_func_for_chat_id(message.chat.id)
                 ),
                 # TODO: намного улучшить description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
-                simple_circuits_description_to_filenames_tool(netlists_descriptions_vector_store),
+                simple_circuit_description_to_filename_tool(netlists_descriptions_vector_store),
                 filename_to_netlist_b64_tool(),
                 # TODO: заставить работать combine_netlists_tool(llm),
                 # TODO: check_for_errors_tool(),
-                # TODO: заставить делать не хуйню netlist_to_asc_tool(),
-                # TODO: когда сверху заработает всё, send_asc_to_user_tool(message.chat.id, bot)
-                send_netlist_b64_to_user_tool(message.chat.id, bot)
+                netlist_b64_to_asc_tool(),
+                send_asc_to_user_tool(message.chat.id, bot)
             ], debug=True
         )
 
