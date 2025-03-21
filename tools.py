@@ -52,12 +52,19 @@ def filename_to_netlist_tool():
 
 def description_to_simple_circuits_descriptions_tool(llm):
     def process_description(query):
+        # Получаем список всех известных схем
+        known_circuits_response = llm.invoke([
+            HumanMessage("Отправь мне ТОЛЬКО список схем")
+        ])
+        known_circuits = known_circuits_response.content.strip()
+
+        # Теперь разбиваем описание на простые схемы
         response = llm.invoke([
             HumanMessage(
                 "Разбей данное описание схемы на более простые составляющие схемы, "
                 "чтобы их можно было искать отдельно. Сохрани ключевые элементы "
                 "и их взаимосвязи. Ответ представь в виде списка отдельных описаний."
-                f"\n\nОписание: {query}"
+                f"\n\nДоступные схемы:\n{known_circuits}\n\nОписание: {query}"
             )
         ])
         return response.content
@@ -197,6 +204,8 @@ def netlist_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
 
     return Tool(
         name="netlist_to_asc",
-        description="Returns the .asc file content which is derived from netlist.",
+        description="Converts netlists content to .asc file content.",
         func=lambda query: get_asc_contents(query)
     )
+
+
