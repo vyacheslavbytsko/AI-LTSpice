@@ -13,7 +13,7 @@ from telebot.states import StatesGroup, State
 from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
-from misc import simple_circuits_description_to_filenames_tool, filename_to_netlist_tool
+from misc import description_to_simple_circuits_descriptions_tool, simple_circuits_description_to_filenames_tool, filename_to_netlist_tool
 
 
 class States(StatesGroup):
@@ -66,7 +66,7 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                     prompt_func=get_prompt_func_for_chat_id(bot, message.chat.id),
                     input_func=get_input_func_for_chat_id(message.chat.id)
                 ),
-                # TODO: description_to_simple_circuits_descriptions_tool(),
+                description_to_simple_circuits_descriptions_tool(),
                 simple_circuits_description_to_filenames_tool(netlists_descriptions_vector_store),
                 filename_to_netlist_tool(),
                 # TODO: combine_netlists_tool(),
