@@ -87,9 +87,10 @@ def get_netlists_descriptions(llm: ChatGroq):
 def get_split_netlists_descriptions(netlists_descriptions):
     if not os.path.isfile("split_netlists_descriptions.pkl"):
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=100,
+            chunk_size=1000,
+            chunk_overlap=200,
             length_function=len,
+            separators=["\n\n", "\n", "."]
         )
 
         split_netlists_descriptions_texts = [splitter.split_text(netlists_description.page_content) for netlists_description in netlists_descriptions]
