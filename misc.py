@@ -191,3 +191,10 @@ def get_netlists_descriptions_vector_store(split_netlists_descriptions) -> FAISS
 
         vector_store.save_local("netlists_descriptions_vector_store")
     return FAISS.load_local("netlists_descriptions_vector_store", emb_model, allow_dangerous_deserialization=True)
+
+
+def get_known_circuits_names_str():
+    filepaths = []
+    for filepath in glob.iglob(os.path.join("circuits", "**", "*.asc"), recursive=True):
+        filepaths.append(filepath.split("/")[-1].removesuffix(".asc"))
+    return "\n".join(filepaths)

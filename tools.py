@@ -5,6 +5,32 @@ from langchain_core.tools import Tool
 from misc import get_default_mapping, round16, get_pin_positions
 
 
+def description_to_simple_circuits_descriptions_tool(llm, known_circuits):
+    def process_description(query, known_circuits):
+        messages = [
+            HumanMessage(
+                "Разбей данное описание схемы на более простые схемы, "
+                "которые я знаю. Ответ представь в виде списка названий. "
+                "То есть, семантически для каждого подописания внутри "
+                "большого описания соответствует ОДНА схема. "
+                "Если ты видишь, что для какого-то подописания "
+                "подходит несколько знакомых мне схем, выбери ту, "
+                "которая подходит больше всего."
+                f"\n\nСхемы, которые я знаю:\n{known_circuits}\n\nОписание: {query}"
+            )
+        ]
+
+        response = llm.invoke(messages)
+
+        return response.content
+
+    return Tool(
+        name="description_to_simple_circuits",
+        description="Разбивает описание сложной схемы на несколько простых описаний схем для последующего поиска.",
+        func=lambda query: process_description(query, known_circuits)
+    )
+
+
 def simple_circuits_description_to_filenames_tool(vector_store: FAISS):
     def get_relevant_filenames_and_descriptions(query):
         retriever = vector_store.as_retriever(
@@ -50,32 +76,6 @@ def filename_to_netlist_tool():
     )
 
 
-def description_to_simple_circuits_descriptions_tool(llm):
-    def process_description(query):
-        # Получаем список всех известных схем
-        known_circuits_response = llm.invoke([
-            HumanMessage("Отправь мне ТОЛЬКО список схем")
-        ])
-        known_circuits = known_circuits_response.content.strip()
-
-        # Теперь разбиваем описание на простые схемы
-        response = llm.invoke([
-            HumanMessage(
-                "Разбей данное описание схемы на более простые составляющие схемы, "
-                "чтобы их можно было искать отдельно. Сохрани ключевые элементы "
-                "и их взаимосвязи. Ответ представь в виде списка отдельных описаний."
-                f"\n\nДоступные схемы:\n{known_circuits}\n\nОписание: {query}"
-            )
-        ])
-        return response.content
-
-    return Tool(
-        name="description_to_simple_circuits",
-        description="Разбивает описание сложной схемы на несколько простых описаний схем для последующего поиска.",
-        func=lambda query: process_description(query)
-    )
-
-
 def netlist_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
                         directive_text_coords: str = "TEXT 450 300 Left 2",
                         comment_text_default: str = "TEXT 80 -250 Left 4"):
@@ -95,9 +95,7 @@ def netlist_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
         flag_spacing_y = 48
         flag_columns = 4
 
-        asc_lines = []
-        asc_lines.append("Version 4")
-        asc_lines.append(sheet_size)
+        asc_lines = ["Version 4", sheet_size]
 
         # Собираем уникальные узлы для флагов и список соединений (пин ↔ узел)
         node_set = set()
@@ -204,7 +202,7 @@ def netlist_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
 
     return Tool(
         name="netlist_to_asc",
-        description="Converts netlists content to .asc file content.",
+        description="Converts netlists content (NOT FILENAME!!! and not comment (a string starting with *); WHOLE NETLIST) to .asc file content.",
         func=lambda query: get_asc_contents(query)
     )
 

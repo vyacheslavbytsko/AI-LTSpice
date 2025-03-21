@@ -39,7 +39,8 @@ def send_start_message(message: Message, bot: TeleBot):
 # Работа с диалогом
 
 def start_conversation(message: Message, bot: TeleBot, state: StateContext,
-                       llm: ChatGroq, netlists_descriptions_vector_store: FAISS, system_message: SystemMessage):
+                       llm: ChatGroq, netlists_descriptions_vector_store: FAISS, system_message: SystemMessage,
+                       known_circuits_names_str: str):
     print("Получили команду /new")
 
     if state.get() is not None:
@@ -52,12 +53,12 @@ def start_conversation(message: Message, bot: TeleBot, state: StateContext,
         data["messages"] = [system_message]
         data["id"] = str(uuid.uuid4())
 
-    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, state)
+    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
 
 
 def answer_in_conversation(message: Message, bot: TeleBot,
                            llm: ChatGroq, netlists_descriptions_vector_store: FAISS,
-                           state: StateContext):
+                           known_circuits_names_str: str, state: StateContext):
     with state.data() as data:
         print(f"chat {message.chat.id}: перед ответом LLM было {len(data["messages"])} сообщений")
         agent = create_react_agent(
@@ -67,7 +68,7 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                     prompt_func=get_prompt_func_for_chat_id(bot, message.chat.id),
                     input_func=get_input_func_for_chat_id(message.chat.id)
                 ),
-                description_to_simple_circuits_descriptions_tool(llm),
+                description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
                 simple_circuits_description_to_filenames_tool(netlists_descriptions_vector_store),
                 filename_to_netlist_tool(),
                 # TODO: combine_netlists_tool(),
@@ -86,16 +87,17 @@ def answer_in_conversation(message: Message, bot: TeleBot,
             data["messages"].extend(result["messages"][num_of_messages_now:])
             print(f"chat {message.chat.id}: после ответа LLM стало {len(data["messages"])} сообщений")
         else:
-            print("Поскольку диалог завершён, не отправляем последнее сообщение (скорее всего оно о том, что ИИ больше не будет использовать инструментарий)")
+            print(
+                "Поскольку диалог завершён, не отправляем последнее сообщение (скорее всего оно о том, что ИИ больше не будет использовать инструментарий)")
 
 
 def handle_conversation_message(message: Message, bot: TeleBot,
                                 llm: ChatGroq, netlists_descriptions_vector_store: FAISS,
-                                state: StateContext):
+                                known_circuits_names_str: str, state: StateContext):
     print(f"Получили сообщение, будучи в диалоге. {state.get()}")
     with state.data() as data:
         data["messages"].append({"role": "user", "content": message.text})
-    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, state)
+    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
 
 
 def end_conversation(message: Message, bot: TeleBot, state: StateContext):
@@ -148,25 +150,30 @@ def handle_input(message: Message, bot: TeleBot, state: StateContext):
 
 # Регистрация хэндлеров
 
-def register_handlers(bot, llm, netlists_descriptions_vector_store, system_message):
+def register_handlers(bot, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str):
     bot.register_message_handler(partial(send_start_message, bot=bot), commands=['start'])
     bot.register_message_handler(partial(start_conversation, bot=bot, llm=llm,
                                          netlists_descriptions_vector_store=netlists_descriptions_vector_store,
-                                         system_message=system_message), commands=['new'])
+                                         system_message=system_message,
+                                         known_circuits_names_str=known_circuits_names_str), commands=['new'])
     bot.register_message_handler(partial(handle_conversation_message, bot=bot, llm=llm,
-                                         netlists_descriptions_vector_store=netlists_descriptions_vector_store),
-                                 func=lambda message: message.chat.id not in user_inputs and message.text not in ["/new", "/end"], state=States.in_conversation)
+                                         netlists_descriptions_vector_store=netlists_descriptions_vector_store,
+                                         known_circuits_names_str=known_circuits_names_str),
+                                 func=lambda message: message.chat.id not in user_inputs and message.text not in [
+                                     "/new", "/end"], state=States.in_conversation)
     bot.register_message_handler(partial(end_conversation, bot=bot), commands=['end'], state=States.in_conversation)
-    bot.register_message_handler(partial(handle_input, bot=bot), func=lambda message: message.chat.id in user_inputs and message.text not in ["/new", "/end"])
+    bot.register_message_handler(partial(handle_input, bot=bot),
+                                 func=lambda message: message.chat.id in user_inputs and message.text not in ["/new",
+                                                                                                              "/end"])
 
 
 # Запуск бота
 
-def start_tg_bot(tg_token, llm, netlists_descriptions_vector_store, system_message):
+def start_tg_bot(tg_token, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str):
     state_storage = StateMemoryStorage()
     bot = TeleBot(tg_token, state_storage=state_storage, use_class_middlewares=True)
 
-    register_handlers(bot, llm, netlists_descriptions_vector_store, system_message)
+    register_handlers(bot, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str)
 
     bot.add_custom_filter(StateFilter(bot))
     bot.setup_middleware(StateMiddleware(bot))
