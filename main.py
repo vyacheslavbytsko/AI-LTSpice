@@ -1,3 +1,6 @@
+# используемые библиотеки
+# langgraph langchain langchain-groq langchain-community langchain-huggingface faiss-cpu pyTelegramBotAPI sentence-transformers spicelib unstructured
+
 import os
 
 from langchain_community.tools import HumanInputRun
