@@ -2,31 +2,37 @@ import base64
 import io
 
 from langchain_community.vectorstores import FAISS
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.tools import Tool
+from langchain_groq import ChatGroq
 from telebot import TeleBot
 
 from misc import get_default_mapping, round16, get_pin_positions
 
 
-def description_to_simple_circuits_descriptions_tool(llm, known_circuits):
+def description_to_simple_circuits_descriptions_tool(llm: ChatGroq, known_circuits: str):
     def process_description(query, known_circuits):
         messages = [
             HumanMessage(
-                "Разбей данное описание схемы на более простые схемы, "
-                "которые я знаю. Ответ представь в виде списка названий. "
-                "То есть, семантически для каждого подописания внутри "
-                "большого описания соответствует ОДНА схема. "
-                "Если ты видишь, что для какого-то подописания "
-                "подходит несколько знакомых мне схем, выбери ту, "
-                "которая подходит больше всего."
-                f"\n\nСхемы, которые я знаю:\n{known_circuits}\n\nОписание: {query}"
+                f"В моей библиотеке схем есть такие схемы:"
+                f"\n{known_circuits}\nМой друг же хочет "
+                f"создать сложную схему на основе следующего "
+                f"описания: \"{query}\". Помоги мне среди "
+                f"библиотеки выбрать минимальное количество "
+                f"схем, при помощи которых можно будет "
+                f"составить схему, которую хочет мой друг."
             )
         ]
 
         response = llm.invoke(messages)
 
-        return response.content
+        messages.append(AIMessage(response.content))
+
+        messages.append(HumanMessage("Выведи мне ТОЛЬКО список нужных схем. Ничего лишнего, даже не надо писать \"Вот список:\""))
+
+        response = llm.invoke(messages)
+
+        return f"Here's the list of simple circuits:\n{response.content}\nUse them to gather descriptions about all of them. They are NOT filenames."
 
     return Tool(
         name="description_to_simple_circuits",
@@ -35,7 +41,7 @@ def description_to_simple_circuits_descriptions_tool(llm, known_circuits):
     )
 
 
-def simple_circuit_description_to_filename_tool(vector_store: FAISS):
+def simple_circuit_description_to_descriptions_and_filenames_tool(vector_store: FAISS):
     def get_relevant_filenames_and_descriptions(query):
         retriever = vector_store.as_retriever(
             search_type="similarity",
@@ -49,11 +55,11 @@ def simple_circuit_description_to_filename_tool(vector_store: FAISS):
         for relevant_description in relevant_descriptions:
             relevant_descriptions_text += f"Filename \"{relevant_description.metadata["description_filename"]}\": \"{relevant_description.page_content}\"\n\n"
 
-        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit. Be aware - those parts were found by using vector store, so if you don't like my answer, reask user for more specific description. DO NOT make user choose filename. Choose by yourself. Choose by yourself."
+        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit. Be aware - those parts were found by using vector store, so if you don't like my answer, reask user for more specific description and run this tool again. DO NOT make user choose filename. Choose by yourself. Choose by yourself."
 
     return Tool(
-        name="description_to_filenames",
-        description="Searches and returns filenames and incomplete descriptions of circuits which fits best to the description provided by human to then get netlist using another tool.",
+        name="simple_circuit_description_to_descriptions_and_filenames",
+        description="RAG tool: Given the simple circuit description, searches and returns three partial descriptions (and their filenames) that fit best to the description of simple circuit. Filenames can be used to gather full descriptions.",
         func=lambda query: get_relevant_filenames_and_descriptions(query)
     )
 
@@ -71,12 +77,15 @@ def filename_to_full_circuit_description_tool():
 
 def filename_to_netlist_b64_tool():
     def filename_to_netlist_b64(query):
-        return (f"Here's the base64 representation of netlist:\n\n```"
-                f"{base64.b64encode(
-                    open(query.removesuffix(".desc.txt") + ".net")
-                    .read()
-                    .encode("utf-8")
-                ).decode("utf-8")}```\n\nYou can now convert it to the .asc file or send it to the user.")
+        try:
+            return (f"Here's the base64 representation of netlist:\n\n```"
+                    f"{base64.b64encode(
+                        open(query.removesuffix(".desc.txt") + ".net")
+                        .read()
+                        .encode("utf-8")
+                    ).decode("utf-8")}```\n\nYou can now convert it to the .asc file or send it to the user.")
+        except FileNotFoundError:
+            return "We didn't find this file. Maybe you should try to use this filename to find description, and then gather real filename?"
 
     return Tool(
         name="filename_to_netlist_b64",
@@ -84,22 +93,29 @@ def filename_to_netlist_b64_tool():
         func=lambda query: filename_to_netlist_b64(query)
     )
 
-def combine_netlists_tool(llm):
+def combine_netlists_b64s_tool(llm):
     def combine_netlists(netlists: list[str], description: str) -> str:
         netlists_str = ""
 
         for i, netlist in enumerate(netlists, start=1):
-            netlists_str += f"\n* Netlist {i}:\n{netlist}\n"
+            netlists_str += f"\n* Netlist {i}:\n{base64.b64decode(netlist.encode("utf-8")).decode("utf-8")}\n"
 
-        prompt = (
+        messages = [HumanMessage(
             "Объедини следующие netlist'ы в один, основываясь на их содержимом и общем описании. "
             "Убедись, что все компоненты подключены корректно и схема соответствует описанию.\n\n"
-            f"Описание схемы: {description}\n\nNetlist'ы: {netlists_str}\n"
-            "Верни только итоговый netlist без пояснений."
-        )
+            f"Описание схемы: {description}\n\nNetlist'ы: {netlists_str}\n")]
 
-        response = llm.invoke([HumanMessage(content=prompt)])
-        return response.content
+        response = llm.invoke(messages)
+
+        messages.append(AIMessage(response.content))
+
+        messages.append(HumanMessage("Отправь мне ТОЛЬКО готовый netlist. Мне важно иметь ничего лишнего."))
+
+        response = llm.invoke(messages)
+
+        print("ГОТОВЫЙ NETLIST:", response.content)
+
+        return base64.b64encode(response.content.encode("utf-8")).decode("utf-8")
 
     return Tool(
         name="combine_netlists",
