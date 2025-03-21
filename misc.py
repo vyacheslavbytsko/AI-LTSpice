@@ -20,7 +20,7 @@ def round16(val):
 
 def get_pin_positions(center, pin_count, offset=20):
     """
-    Возвращает список координат пинов компонента относительно центра.
+    Возвращает список координат для пинов компонента относительно центра.
     Для 2 контактов – слева и справа; для 3,4 – предопределённые позиции;
     для остальных – равномерное распределение по окружности.
     Все координаты округляются до кратных 16.
@@ -43,7 +43,14 @@ def get_pin_positions(center, pin_count, offset=20):
 def get_default_mapping(inst_name, full_line):
     """
     Возвращает словарь с настройками для компонента по его имени.
-    Подбирает символ, предопределённые окна и количество контактов.
+    Для универсальных схем подбираются:
+      V*: voltage (2 контакта, оконные настройки)
+      R*: res (2 контакта, оконные настройки)
+      C*: cap (2 контакта)
+      J*: njf (3 контакта)
+      Q*: npn (3 контакта)
+      X*: если содержит "opamp" – Opamps\opamp (3 контакта), иначе unknown (2 контакта)
+      D*: для диодов – по умолчанию symbol "diode" (2 контакта)
     """
     mapping = {}
     if inst_name.startswith("V"):
@@ -69,7 +76,6 @@ def get_default_mapping(inst_name, full_line):
         mapping["windows"] = []
         mapping["pin_count"] = 3
     elif inst_name.startswith("X"):
-        # Если в строке содержится слово "opamp", выбираем символ операционного усилителя
         if "opamp" in full_line.lower():
             mapping["symbol"] = "Opamps\\opamp"
             mapping["windows"] = []
@@ -78,6 +84,11 @@ def get_default_mapping(inst_name, full_line):
             mapping["symbol"] = "unknown"
             mapping["windows"] = []
             mapping["pin_count"] = 2
+    elif inst_name.startswith("D"):
+        # Универсальный диод – для обычного диода можно задать symbol "diode"
+        mapping["symbol"] = "diode"
+        mapping["windows"] = []
+        mapping["pin_count"] = 2
     else:
         mapping["symbol"] = "unknown"
         mapping["windows"] = []

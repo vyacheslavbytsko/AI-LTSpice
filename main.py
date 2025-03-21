@@ -25,11 +25,10 @@ split_netlists_descriptions = get_split_netlists_descriptions(netlists_descripti
 netlists_descriptions_vector_store = get_netlists_descriptions_vector_store(split_netlists_descriptions)
 
 system_message = SystemMessage("Ты инженер LTSpice. Спроси у пользователя, "
-                               "какую схему он хочет получить, раздели её на "
-                               "простые схемы, получи netlist'ы каждой, объедини "
-                               "netlist'ы, проверь netlist на ошибки и отправь "
-                               "этот файл (его содержимое!) пользователю. Используй доступные инструменты. "
+                               "какую схему он хочет получить, получи netlist этой схемы и отправь "
+                               "этот файл пользователю, затем напиши пользователю сообщение "
+                               "в духе \"Ура, всё получилось!\". Используй доступные инструменты. "
                                "Когда пользователь сообщает, что ты что-то сделал неверно, "
                                "не стесняйся использовать инструменты ещё раз.")
 
-start_tg_bot(tg_token, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str)
+start_tg_bot(tg_token, llm_limited, netlists_descriptions_vector_store, system_message, known_circuits_names_str)

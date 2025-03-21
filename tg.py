@@ -14,7 +14,8 @@ from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
 from tools import netlist_to_asc_tool, simple_circuits_description_to_filenames_tool, filename_to_netlist_tool, \
-    description_to_simple_circuits_descriptions_tool, combine_netlists_tool
+    description_to_simple_circuits_descriptions_tool, combine_netlists_tool, send_asc_to_user_tool, \
+    send_netlist_to_user_tool
 
 
 class States(StatesGroup):
@@ -68,12 +69,14 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                     prompt_func=get_prompt_func_for_chat_id(bot, message.chat.id),
                     input_func=get_input_func_for_chat_id(message.chat.id)
                 ),
-                description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
+                # TODO: намного улучшить description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
                 simple_circuits_description_to_filenames_tool(netlists_descriptions_vector_store),
                 filename_to_netlist_tool(),
-                combine_netlists_tool(llm),
-                # TODO: check_for_errors_tool()
-                netlist_to_asc_tool()
+                # TODO: заставить работать combine_netlists_tool(llm),
+                # TODO: check_for_errors_tool(),
+                # TODO: заставить делать не хуйню netlist_to_asc_tool(),
+                # TODO: когда сверху заработает всё, send_asc_to_user_tool(message.chat.id, bot)
+                send_netlist_to_user_tool(message.chat.id, bot)
             ], debug=True
         )
 
