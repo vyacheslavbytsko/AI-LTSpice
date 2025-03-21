@@ -164,18 +164,29 @@ def filename_to_netlist_tool():
         func=lambda query: get_content(query)
     )
 
+def get_all_known_circuits():
+    known_circuits = []
+    for filepath in glob.iglob(os.path.join("circuits", "**", "*.desc.txt"), recursive=True):
+        with open(filepath, "r", encoding="utf-8") as f:
+            known_circuits.append(f.read().strip())
+
+    return "\n".join(known_circuits)
+
 def description_to_simple_circuits_descriptions_tool(llm):
     def process_description(query):
+        # Получаем список всех известных схем
         known_circuits_response = llm.invoke([
             HumanMessage("Отправь мне ТОЛЬКО список схем")
         ])
-        known_circuits = known_circuits_response.content
+        known_circuits = known_circuits_response.content.strip()
+
+        # Теперь разбиваем описание на простые схемы
         response = llm.invoke([
             HumanMessage(
                 "Разбей данное описание схемы на более простые составляющие схемы, "
                 "чтобы их можно было искать отдельно. Сохрани ключевые элементы "
                 "и их взаимосвязи. Ответ представь в виде списка отдельных описаний."
-                f"\n\nДоступные схемы: {known_circuits}\n\nОписание: {query}"
+                f"\n\nДоступные схемы:\n{known_circuits}\n\nОписание: {query}"
             )
         ])
         return response.content
@@ -185,3 +196,4 @@ def description_to_simple_circuits_descriptions_tool(llm):
         description="Разбивает описание сложной схемы на несколько простых описаний схем для последующего поиска.",
         func=lambda query: process_description(query)
     )
+
