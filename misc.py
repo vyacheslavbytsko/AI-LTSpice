@@ -1,4 +1,5 @@
 import glob
+import math
 import os.path
 import pickle
 
@@ -6,11 +7,82 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
 from langchain_core.rate_limiters import InMemoryRateLimiter
-from langchain_core.tools import tool, Tool
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from spicelib.simulators.ltspice_simulator import LTspice
+
+
+def round16(val):
+    """Округляет значение до ближайшего числа, кратного 16."""
+    return int(round(val / 16.0)) * 16
+
+
+def get_pin_positions(center, pin_count, offset=20):
+    """
+    Возвращает список координат пинов компонента относительно центра.
+    Для 2 контактов – слева и справа; для 3,4 – предопределённые позиции;
+    для остальных – равномерное распределение по окружности.
+    Все координаты округляются до кратных 16.
+    """
+    cx, cy = center
+    if pin_count == 2:
+        pos = [(cx - offset, cy), (cx + offset, cy)]
+    elif pin_count == 3:
+        pos = [(cx - offset, cy), (cx, cy + offset), (cx + offset, cy)]
+    elif pin_count == 4:
+        pos = [(cx - offset, cy), (cx, cy + offset), (cx + offset, cy), (cx, cy - offset)]
+    else:
+        pos = []
+        for i in range(pin_count):
+            angle = 2 * math.pi * i / pin_count
+            pos.append((cx + offset * math.cos(angle), cy + offset * math.sin(angle)))
+    return [(round16(x), round16(y)) for x, y in pos]
+
+
+def get_default_mapping(inst_name, full_line):
+    """
+    Возвращает словарь с настройками для компонента по его имени.
+    Подбирает символ, предопределённые окна и количество контактов.
+    """
+    mapping = {}
+    if inst_name.startswith("V"):
+        mapping["symbol"] = "voltage"
+        mapping["windows"] = ["WINDOW 123 24 124 Left 2", "WINDOW 39 0 0 Left 2"]
+        mapping["pin_count"] = 2
+        if "AC" in full_line:
+            mapping["extra"] = "SYMATTR Value2 AC 1"
+    elif inst_name.startswith("R"):
+        mapping["symbol"] = "res"
+        mapping["windows"] = ["WINDOW 0 0 56 VBottom 2", "WINDOW 3 32 56 VTop 2"]
+        mapping["pin_count"] = 2
+    elif inst_name.startswith("C"):
+        mapping["symbol"] = "cap"
+        mapping["windows"] = []
+        mapping["pin_count"] = 2
+    elif inst_name.startswith("J"):
+        mapping["symbol"] = "njf"
+        mapping["windows"] = []
+        mapping["pin_count"] = 3
+    elif inst_name.startswith("Q"):
+        mapping["symbol"] = "npn"
+        mapping["windows"] = []
+        mapping["pin_count"] = 3
+    elif inst_name.startswith("X"):
+        # Если в строке содержится слово "opamp", выбираем символ операционного усилителя
+        if "opamp" in full_line.lower():
+            mapping["symbol"] = "Opamps\\opamp"
+            mapping["windows"] = []
+            mapping["pin_count"] = 3
+        else:
+            mapping["symbol"] = "unknown"
+            mapping["windows"] = []
+            mapping["pin_count"] = 2
+    else:
+        mapping["symbol"] = "unknown"
+        mapping["windows"] = []
+        mapping["pin_count"] = 2
+    return mapping
 
 
 def multiline_input() -> str:
@@ -119,6 +191,7 @@ def get_netlists_descriptions_vector_store(split_netlists_descriptions) -> FAISS
 
         vector_store.save_local("netlists_descriptions_vector_store")
     return FAISS.load_local("netlists_descriptions_vector_store", emb_model, allow_dangerous_deserialization=True)
+
 
 
 def simple_circuits_description_to_filenames_tool(vector_store: FAISS):
