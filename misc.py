@@ -7,7 +7,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
 from langchain_core.rate_limiters import InMemoryRateLimiter
-from langchain_core.tools import tool, Tool
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -192,65 +191,3 @@ def get_netlists_descriptions_vector_store(split_netlists_descriptions) -> FAISS
 
         vector_store.save_local("netlists_descriptions_vector_store")
     return FAISS.load_local("netlists_descriptions_vector_store", emb_model, allow_dangerous_deserialization=True)
-
-
-def simple_circuits_description_to_filenames_tool(vector_store: FAISS):
-
-    def get_relevant_filenames_and_descriptions(query):
-        retriever = vector_store.as_retriever(
-            search_type="similarity",
-            k=3,
-            score_threshold=None,
-        )
-
-        relevant_descriptions = retriever.invoke(query)
-
-        relevant_descriptions_text = ""
-        for relevant_description in relevant_descriptions:
-            relevant_descriptions_text += f"Filename \"{relevant_description.metadata["description_filename"]}\": \"{relevant_description.page_content}\"\n\n"
-
-        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit."
-
-    return Tool(
-        name="description_to_filenames",
-        description="Searches and returns filenames and incomplete descriptions of circuits which fits best to the description provided by human to then get netlist using another tool.",
-        func=lambda query: get_relevant_filenames_and_descriptions(query)
-    )
-
-
-def filename_to_full_circuit_description_tool():
-    def get_content(query):
-        return f"Here is the full description of circuit:\n\n\"{open(query).read()}\""
-    return Tool(
-        name="filename_to_full_circuit_description",
-        description="Returns the full description of circuit based on the filename of description.",
-        func=lambda query: get_content(query)
-    )
-
-
-def filename_to_netlist_tool():
-    def get_content(query):
-        return open(query.removesuffix(".desc.txt")+".net").read()
-    return Tool(
-        name="filename_to_netlist",
-        description="Returns the netlist of circuit based on the filename of description.",
-        func=lambda query: get_content(query)
-    )
-
-def description_to_simple_circuits_descriptions_tool(llm):
-    def process_description(query):
-        response = llm.invoke([
-            HumanMessage(
-                "Разбей данное описание схемы на более простые составляющие схемы, "
-                "чтобы их можно было искать отдельно. Сохрани ключевые элементы "
-                "и их взаимосвязи. Ответ представь в виде списка отдельных описаний."
-                f"\n\nОписание: {query}"
-            )
-        ])
-        return response.content
-
-    return Tool(
-        name="description_to_simple_circuits",
-        description="Разбивает описание сложной схемы на несколько простых описаний схем для последующего поиска.",
-        func=lambda query: process_description(query)
-    )

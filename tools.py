@@ -1,4 +1,5 @@
 from langchain_community.vectorstores import FAISS
+from langchain_core.messages import HumanMessage
 from langchain_core.tools import Tool
 
 from misc import get_default_mapping, round16, get_pin_positions
@@ -46,6 +47,25 @@ def filename_to_netlist_tool():
         name="filename_to_netlist",
         description="Returns the netlist of circuit based on the filename of description.",
         func=lambda query: get_content(query)
+    )
+
+
+def description_to_simple_circuits_descriptions_tool(llm):
+    def process_description(query):
+        response = llm.invoke([
+            HumanMessage(
+                "Разбей данное описание схемы на более простые составляющие схемы, "
+                "чтобы их можно было искать отдельно. Сохрани ключевые элементы "
+                "и их взаимосвязи. Ответ представь в виде списка отдельных описаний."
+                f"\n\nОписание: {query}"
+            )
+        ])
+        return response.content
+
+    return Tool(
+        name="description_to_simple_circuits",
+        description="Разбивает описание сложной схемы на несколько простых описаний схем для последующего поиска.",
+        func=lambda query: process_description(query)
     )
 
 
