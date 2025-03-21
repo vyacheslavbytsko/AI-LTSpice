@@ -45,7 +45,7 @@ def simple_circuits_description_to_filenames_tool(vector_store: FAISS):
         for relevant_description in relevant_descriptions:
             relevant_descriptions_text += f"Filename \"{relevant_description.metadata["description_filename"]}\": \"{relevant_description.page_content}\"\n\n"
 
-        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit."
+        return f"Here are three filenames and descriptions which fit the best to the description you provided:\n\n{relevant_descriptions_text}Use them to choose filename to get netlist of the circuit. Be aware - those parts were found by using vector store, so if you don't like my answer, you can retry search by providing more specific description. You can ask user for specific description."
 
     return Tool(
         name="description_to_filenames",
