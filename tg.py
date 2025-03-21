@@ -7,6 +7,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.messages import SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
+from misc import combine_netlists_tool
 from telebot import TeleBot, StateMemoryStorage
 from telebot.custom_filters import StateFilter
 from telebot.states import StatesGroup, State
@@ -71,7 +72,7 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                 description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
                 simple_circuits_description_to_filenames_tool(netlists_descriptions_vector_store),
                 filename_to_netlist_tool(),
-                # TODO: combine_netlists_tool(),
+                combine_netlists_tool(llm),
                 # TODO: check_for_errors_tool()
                 netlist_to_asc_tool()
             ], debug=True

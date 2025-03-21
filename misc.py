@@ -198,3 +198,16 @@ def get_known_circuits_names_str():
     for filepath in glob.iglob(os.path.join("circuits", "**", "*.asc"), recursive=True):
         filepaths.append(filepath.split("/")[-1].removesuffix(".asc"))
     return "\n".join(filepaths)
+
+def combine_netlists_tool(llm):
+    def combine_netlists(netlists, description):
+        response = llm.invoke([
+            HumanMessage(
+                "Объедини данные netlist'ы в один netlist, следуя предоставленному описанию схемы. "
+                "Убедись, что соединения между элементами корректны и логичны. "
+                "Если необходимо, добавь соединения для согласованности схемы.\n\n"
+                f"Netlist'ы:\n{netlists}\n\nОписание:\n{description}"
+            )
+        ])
+        return response.content
+
