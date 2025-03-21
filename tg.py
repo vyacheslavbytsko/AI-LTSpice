@@ -7,7 +7,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.messages import SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
-from misc import combine_netlists_tool
 from telebot import TeleBot, StateMemoryStorage
 from telebot.custom_filters import StateFilter
 from telebot.states import StatesGroup, State
@@ -15,7 +14,7 @@ from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
 from tools import netlist_to_asc_tool, simple_circuits_description_to_filenames_tool, filename_to_netlist_tool, \
-    description_to_simple_circuits_descriptions_tool
+    description_to_simple_circuits_descriptions_tool, combine_netlists_tool
 
 
 class States(StatesGroup):

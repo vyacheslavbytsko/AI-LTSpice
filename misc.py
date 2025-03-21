@@ -199,30 +199,4 @@ def get_known_circuits_names_str():
         filepaths.append(filepath.split("/")[-1].removesuffix(".asc"))
     return "\n".join(filepaths)
 
-def combine_netlists(netlists: list, description: str) -> str:
-
-    combined_netlist = f"""* Описание схемы: {description}
-* Объединенные netlist'ы:"""
-    
-    for i, netlist in enumerate(netlists, start=1):
-        combined_netlist += f"\n* Netlist {i}:\n{netlist}\n"
-    
-    return combined_netlist
-
-def combine_netlists_tool(llm, netlists: list, description: str) -> str:
-    """
-    Использует LLM для объединения netlist'ов в один, корректируя соединения.
-    """
-    initial_combined_netlist = combine_netlists(netlists, description)
-    
-    prompt = (
-        "Объедини следующие netlist'ы в один, основываясь на их содержимом и общем описании. "
-        "Убедись, что все компоненты подключены корректно и схема соответствует описанию.\n\n"
-        f"{initial_combined_netlist}\n\n"
-        "Верни только итоговый netlist без пояснений."
-    )
-    
-    response = llm.invoke([HumanMessage(content=prompt)])
-    return response.content
-
 

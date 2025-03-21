@@ -75,6 +75,24 @@ def filename_to_netlist_tool():
         func=lambda query: get_content(query)
     )
 
+def combine_netlists_tool(llm):
+    def combine_netlists(netlists: str, description: str) -> str:
+        prompt = (
+            "Объедини следующие netlist'ы в один, основываясь на их содержимом и общем описании. "
+            "Убедись, что все компоненты подключены корректно и схема соответствует описанию.\n\n"
+            f"Описание схемы: {description}\n\nNetlist'ы: {netlists}"
+            "Верни только итоговый netlist без пояснений."
+        )
+
+        response = llm.invoke([HumanMessage(content=prompt)])
+        return response.content
+
+    return Tool(
+        name="combine_netlists",
+        description="Объединяет несколько netlist'ов в один общий netlist на основе их содержимого и описания схемы.",
+        func=lambda netlists, description: combine_netlists(netlists, description)
+    )
+
 
 def netlist_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
                         directive_text_coords: str = "TEXT 450 300 Left 2",
