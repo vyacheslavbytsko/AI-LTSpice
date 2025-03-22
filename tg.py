@@ -15,7 +15,8 @@ from telebot.types import Message, BotCommand
 from misc import voice_message_to_text, text_to_voice_message
 from tools import simple_circuit_description_to_descriptions_and_filenames_tool, \
     description_to_simple_circuits_descriptions_tool, combine_netlists_b64s_tool, send_asc_to_user_tool, \
-    filename_to_netlist_b64_tool, netlist_b64_to_asc_tool, send_netlist_b64_to_user_tool
+    filename_to_netlist_b64_tool, netlist_b64_to_asc_tool, send_netlist_b64_to_user_tool, \
+    apply_parameters_to_netlist_b64_tool
 
 
 class States(StatesGroup):
@@ -72,8 +73,7 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                 simple_circuit_description_to_descriptions_and_filenames_tool(netlists_descriptions_vector_store),
                 filename_to_netlist_b64_tool(),
                 combine_netlists_b64s_tool(llm),
-                # TODO: apply_parameters_to_netlist_b64(),
-                # TODO: check_for_errors_tool(),
+                apply_parameters_to_netlist_b64_tool(llm),
                 send_netlist_b64_to_user_tool(message.chat.id, bot),
                 netlist_b64_to_asc_tool(),
                 send_asc_to_user_tool(message.chat.id, bot)
