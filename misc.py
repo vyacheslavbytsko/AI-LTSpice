@@ -114,8 +114,8 @@ def multiline_input() -> str:
 
 def get_rate_limiter():
     return InMemoryRateLimiter(
-        requests_per_second=0.2,  # Можно делать запрос только раз в 5 секунд
-        check_every_n_seconds=2,  # Проверять, доступны ли токены каждые 2 с
+        requests_per_second=0.05,  # Можно делать запрос только раз в 20 секунд
+        check_every_n_seconds=10,  # Проверять, доступны ли токены каждые 10 с
         max_bucket_size=1,  # Контролировать максимальный размер всплеска запросов
     )
 

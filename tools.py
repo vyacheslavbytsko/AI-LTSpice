@@ -3,8 +3,9 @@ import io
 
 from langchain_community.vectorstores import FAISS
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.tools import Tool
+from langchain_core.tools import Tool, StructuredTool
 from langchain_groq import ChatGroq
+from pydantic import BaseModel, Field
 from telebot import TeleBot
 
 from misc import get_default_mapping, round16, get_pin_positions
@@ -15,13 +16,15 @@ def description_to_simple_circuits_descriptions_tool(llm: ChatGroq, known_circui
         messages = [
             HumanMessage(
                 f"В моей библиотеке схем есть такие схемы:"
-                f"\n{known_circuits}\nМой друг же хочет "
-                f"создать сложную схему на основе следующего "
-                f"описания: \"{query}\". Помоги мне среди "
-                f"библиотеки выбрать минимальное количество "
-                f"схем (следи, чтобы найденные схемы были сильно "
-                f"различны), при помощи которых можно будет "
-                f"составить схему, которую хочет мой друг."
+                f"\n{known_circuits}\nМой друг же хочет создать "
+                f"сложную схему на основе следующего описания: "
+                f"\"{query}\". Помоги мне выбрать минимальное "
+                f"количество схем, при помощи которых можно будет "
+                f"составить схему, которую хочет мой друг. Это "
+                f"количество даже может быть равно единице! Мне "
+                f"нужно реально минимальное количество схем из "
+                f"библиотеки, чтобы можно было составить схему "
+                f"по описанию."
             )
         ]
 
@@ -95,7 +98,7 @@ def filename_to_netlist_b64_tool():
     )
 
 def combine_netlists_b64s_tool(llm):
-    def combine_netlists(description: str, *netlists) -> str:
+    def combine_netlists(description: str, netlists: list[str]) -> str:
         netlists_str = ""
 
         for i, netlist in enumerate(netlists, start=1):
@@ -118,17 +121,15 @@ def combine_netlists_b64s_tool(llm):
 
         return base64.b64encode(response.content.encode("utf-8")).decode("utf-8")
 
-    return Tool(
+    class CombineNetlistsInput(BaseModel):
+        description: str = Field(description="Initial description of circuit user wants.")
+        netlists: list[str] = Field(description="A list of base64 representations of netlists' contents (full contents!!!)")
+
+    return StructuredTool.from_function(
+        func=combine_netlists,
+        args_schema=CombineNetlistsInput,
         name="combine_netlists",
         description="Объединяет несколько base64 репрезентаций netlist'ов в один combined netlist (его base64 репрезентацию) на основе их содержимого и описания схемы.\n"
-                    "\n"
-                    "Args:\n"
-                    "   description (str): Initial description of circuit user wants.\n"
-                    "   netlists (list[str]): A list of base64 representations of netlists' contents (full contents!!!)\n"
-                    "\n"
-                    "Returns:\n"
-                    "    str: Netlist which is a combination of small netlists.",
-        func=lambda description, *netlists: combine_netlists(description, *netlists)
     )
 
 
@@ -342,7 +343,7 @@ def send_netlist_b64_to_user_tool(chat_id: int, bot: TeleBot):
 
     return Tool(
         name="send_netlist_to_user",
-        description="Sends base64 representation of netlist as a file to the user.",
+        description="Sends base64 representation of netlist to the user.",
         func=lambda asc_file_content: send_netlist_b64_to_user(chat_id, bot, asc_file_content)
     )
 
