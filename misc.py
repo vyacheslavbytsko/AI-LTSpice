@@ -2,7 +2,10 @@ import glob
 import math
 import os.path
 import pickle
+import tempfile
 
+import ffmpeg
+from gtts import gTTS
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
@@ -10,7 +13,10 @@ from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from speech_recognition import Recognizer, AudioFile, UnknownValueError, RequestError
 from spicelib.simulators.ltspice_simulator import LTspice
+from telebot import TeleBot
+from telebot.types import Message
 
 
 def round16(val):
@@ -210,4 +216,77 @@ def get_known_circuits_names_str():
         filepaths.append(filepath.split("/")[-1].removesuffix(".asc"))
     return "\n".join(filepaths)
 
+
+def convert_ogg_to_wav(ogg_path: str, wav_path: str):
+    """Конвертирует .ogg файл в .wav с помощью ffmpeg."""
+    (
+        ffmpeg
+        .input(ogg_path)
+        .output(wav_path, format='wav')
+        .run(overwrite_output=True)
+    )
+
+def convert_mp3_to_ogg(mp3_path: str, ogg_path: str):
+    """Конвертирует .mp3 файл в .ogg с помощью ffmpeg."""
+    (
+        ffmpeg
+        .input(mp3_path)
+        .output(ogg_path, format='ogg')
+        .run(overwrite_output=True)
+    )
+
+def voice_message_to_text(message: Message, bot: TeleBot) -> str:
+    voice_info = bot.get_file(message.voice.file_id)
+    voice_path = voice_info.file_path
+
+    with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as ogg_file:
+        ogg_file_name = ogg_file.name
+        downloaded_file = bot.download_file(voice_path)
+
+        with open(ogg_file_name, 'wb') as f:
+            f.write(downloaded_file)
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
+            wav_file_name = wav_file.name
+            convert_ogg_to_wav(ogg_file_name, wav_file_name)
+
+            text = speech_to_text(wav_file_name)
+
+            os.remove(wav_file_name)
+            os.remove(ogg_file_name)
+
+            return text
+
+
+def speech_to_text(filename: str) -> str:
+    """Преобразует аудиофайл в текст."""
+    recognizer = Recognizer()
+    with AudioFile(filename) as source:
+        audio = recognizer.record(source)
+    try:
+        text = recognizer.recognize_google(audio, language="ru-RU")
+        return text
+    except UnknownValueError:
+        return "Речь не распознана"
+    except RequestError:
+        return "Ошибка сервиса распознавания речи"
+
+
+def text_to_speech(text: str) -> str:
+    """Преобразует текст в аудиофайл и возвращает путь к нему."""
+    tts = gTTS(text=text, lang='ru')
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio_file:
+        tts.save(temp_audio_file.name)
+        return temp_audio_file.name
+
+
+def text_to_voice_message(chat_id: int, bot: TeleBot, text: str):
+    mp3_path = text_to_speech(text)
+    with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as voice_file:
+        voice_path = voice_file.name
+        convert_mp3_to_ogg(mp3_path, voice_path)
+        with open(voice_path, 'rb') as audio_file:
+            bot.send_voice(chat_id, audio_file)
+            os.remove(voice_path)
+            os.remove(mp3_path)
 

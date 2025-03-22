@@ -13,9 +13,10 @@ from telebot.states import StatesGroup, State
 from telebot.states.sync import StateContext, StateMiddleware
 from telebot.types import Message, BotCommand
 
+from misc import voice_message_to_text, text_to_voice_message
 from tools import simple_circuit_description_to_descriptions_and_filenames_tool, \
     description_to_simple_circuits_descriptions_tool, combine_netlists_b64s_tool, send_asc_to_user_tool, \
-    filename_to_netlist_b64_tool, send_netlist_b64_to_user_tool, netlist_b64_to_asc_tool
+    filename_to_netlist_b64_tool, netlist_b64_to_asc_tool
 
 
 class States(StatesGroup):
@@ -66,13 +67,14 @@ def answer_in_conversation(message: Message, bot: TeleBot,
             llm,
             [
                 HumanInputRun(
-                    prompt_func=get_prompt_func_for_chat_id(bot, message.chat.id),
+                    prompt_func=get_prompt_func_for_chat_id(bot, message.chat.id, state),
                     input_func=get_input_func_for_chat_id(message.chat.id)
                 ),
                 description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
                 simple_circuit_description_to_descriptions_and_filenames_tool(netlists_descriptions_vector_store),
                 filename_to_netlist_b64_tool(),
                 combine_netlists_b64s_tool(llm),
+                # TODO: apply_parameters_to_netlist_b64(),
                 # TODO: check_for_errors_tool(),
                 netlist_b64_to_asc_tool(),
                 send_asc_to_user_tool(message.chat.id, bot)
@@ -84,7 +86,12 @@ def answer_in_conversation(message: Message, bot: TeleBot,
         })
 
         if state.get() is not None:
-            bot.send_message(message.chat.id, result["messages"][-1].content)
+            text = result["messages"][-1].content
+            with state.data() as data2:
+                if data2.get("voice", False):
+                    text_to_voice_message(message.chat.id, bot, text)
+                else:
+                    bot.send_message(message.chat.id, text)
             num_of_messages_now = len(data["messages"])
             data["messages"].extend(result["messages"][num_of_messages_now:])
             print(f"chat {message.chat.id}: после ответа LLM стало {len(data["messages"])} сообщений")
@@ -102,6 +109,15 @@ def handle_conversation_message(message: Message, bot: TeleBot,
     answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
 
 
+def handle_conversation_voice_message(message: Message, bot: TeleBot,
+                                      llm: ChatGroq, netlists_descriptions_vector_store: FAISS,
+                                      known_circuits_names_str: str, state: StateContext):
+    print(f"Получили голосовое сообщение, будучи в диалоге. {state.get()}")
+    with state.data() as data:
+        data["messages"].append({"role": "user", "content": voice_message_to_text(message, bot)})
+    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
+
+
 def end_conversation(message: Message, bot: TeleBot, state: StateContext):
     print(f"Получили команду /end, будучи в диалоге.")
     if message.chat.id in user_inputs.keys():
@@ -112,12 +128,16 @@ def end_conversation(message: Message, bot: TeleBot, state: StateContext):
 
 # Работа с HumanInputRun
 
-def ask_prompt(bot: TeleBot, chat_id: int, text: str) -> None:
-    bot.send_message(chat_id, text)
+def ask_prompt(bot: TeleBot, chat_id: int, text: str, state: StateContext) -> None:
+    with state.data() as data:
+        if data.get("voice", False):
+            text_to_voice_message(chat_id, bot, text)
+        else:
+            bot.send_message(chat_id, text)
 
 
-def get_prompt_func_for_chat_id(bot: TeleBot, chat_id: int):
-    return lambda text: ask_prompt(bot, chat_id, text)
+def get_prompt_func_for_chat_id(bot: TeleBot, chat_id: int, state: StateContext):
+    return lambda text: ask_prompt(bot, chat_id, text, state)
 
 
 def get_user_input(chat_id: int):
@@ -142,17 +162,34 @@ def get_input_func_for_chat_id(chat_id: int):
 
 def handle_input(message: Message, bot: TeleBot, state: StateContext):
     print(f"Получили сообщение-ответ, будучи в диалоге.")
+    text = message.text
     chat_id = message.chat.id
     if state.get() is None:
         user_inputs[chat_id]["event"].set()
         return
-    user_inputs[chat_id]["input"] = message.text
+    with state.data() as data:
+        data["voice"] = False
+    user_inputs[chat_id]["input"] = text
+    user_inputs[chat_id]["event"].set()
+
+
+def handle_voice_input(message: Message, bot: TeleBot, state: StateContext):
+    print("Получили голосовое сообщение-ответ, будучи в диалоге.")
+    text = voice_message_to_text(message, bot)
+    chat_id = message.chat.id
+    if state.get() is None:
+        user_inputs[chat_id]["event"].set()
+        return
+    with state.data() as data:
+        data["voice"] = True
+    user_inputs[chat_id]["input"] = text
     user_inputs[chat_id]["event"].set()
 
 
 # Регистрация хэндлеров
 
-def register_handlers(bot, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str):
+def register_handlers(bot: TeleBot, llm: ChatGroq, netlists_descriptions_vector_store, system_message,
+                      known_circuits_names_str):
     bot.register_message_handler(partial(send_start_message, bot=bot), commands=['start'])
     bot.register_message_handler(partial(start_conversation, bot=bot, llm=llm,
                                          netlists_descriptions_vector_store=netlists_descriptions_vector_store,
@@ -161,10 +198,20 @@ def register_handlers(bot, llm, netlists_descriptions_vector_store, system_messa
     bot.register_message_handler(partial(handle_conversation_message, bot=bot, llm=llm,
                                          netlists_descriptions_vector_store=netlists_descriptions_vector_store,
                                          known_circuits_names_str=known_circuits_names_str),
+                                 content_types=['text'],
                                  func=lambda message: message.chat.id not in user_inputs and message.text not in [
                                      "/new", "/end"], state=States.in_conversation)
     bot.register_message_handler(partial(end_conversation, bot=bot), commands=['end'], state=States.in_conversation)
-    bot.register_message_handler(partial(handle_input, bot=bot),
+    bot.register_message_handler(partial(handle_input, bot=bot), content_types=['text'],
+                                 func=lambda message: message.chat.id in user_inputs and message.text not in ["/new",
+                                                                                                              "/end"])
+    bot.register_message_handler(partial(handle_conversation_voice_message, bot=bot, llm=llm,
+                                         netlists_descriptions_vector_store=netlists_descriptions_vector_store,
+                                         known_circuits_names_str=known_circuits_names_str),
+                                 content_types=['voice'],
+                                 func=lambda message: message.chat.id not in user_inputs and message.text not in [
+                                     "/new", "/end"], state=States.in_conversation)
+    bot.register_message_handler(partial(handle_voice_input, bot=bot), content_types=['voice'],
                                  func=lambda message: message.chat.id in user_inputs and message.text not in ["/new",
                                                                                                               "/end"])
 
