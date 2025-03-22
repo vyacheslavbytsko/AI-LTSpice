@@ -79,12 +79,12 @@ def filename_to_full_circuit_description_tool():
 def filename_to_netlist_b64_tool():
     def filename_to_netlist_b64(query):
         try:
-            return (f"Here's the base64 representation of netlist:\n\n```"
+            return (f"Here's the base64 representation of netlist: \""
                     f"{base64.b64encode(
                         open(query.removesuffix(".desc.txt") + ".net")
                         .read()
                         .encode("utf-8")
-                    ).decode("utf-8")}```\n\nYou can now convert it to the .asc file or send it to the user.")
+                    ).decode("utf-8")}\"")
         except FileNotFoundError:
             return "We didn't find this file. Maybe you should try to use this filename to find description, and then gather real filename?"
 
