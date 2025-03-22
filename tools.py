@@ -128,7 +128,7 @@ def combine_netlists_b64s_tool(llm):
                     "\n"
                     "Returns:\n"
                     "    str: Netlist which is a combination of small netlists.",
-        func=lambda netlists, description: combine_netlists(netlists, description)
+        func=lambda description, *netlists: combine_netlists(description, *netlists)
     )
 
 
