@@ -198,20 +198,20 @@ def register_handlers(bot: TeleBot, llm: ChatGroq, netlists_descriptions_vector_
                                          netlists_descriptions_vector_store=netlists_descriptions_vector_store,
                                          known_circuits_names_str=known_circuits_names_str),
                                  content_types=['text'],
-                                 func=lambda message: message.chat.id not in user_inputs and message.text not in [
+                                 func=lambda message: message.chat.id not in user_inputs.keys() and message.text not in [
                                      "/new", "/end"], state=States.in_conversation)
     bot.register_message_handler(partial(end_conversation, bot=bot), commands=['end'], state=States.in_conversation)
     bot.register_message_handler(partial(handle_input, bot=bot), content_types=['text'],
-                                 func=lambda message: message.chat.id in user_inputs and message.text not in ["/new",
+                                 func=lambda message: message.chat.id in user_inputs.keys() and message.text not in ["/new",
                                                                                                               "/end"])
     bot.register_message_handler(partial(handle_conversation_voice_message, bot=bot, llm=llm,
                                          netlists_descriptions_vector_store=netlists_descriptions_vector_store,
                                          known_circuits_names_str=known_circuits_names_str),
                                  content_types=['voice'],
-                                 func=lambda message: message.chat.id not in user_inputs and message.text not in [
+                                 func=lambda message: message.chat.id not in user_inputs.keys() and message.text not in [
                                      "/new", "/end"], state=States.in_conversation)
     bot.register_message_handler(partial(handle_voice_input, bot=bot), content_types=['voice'],
-                                 func=lambda message: message.chat.id in user_inputs and message.text not in ["/new",
+                                 func=lambda message: message.chat.id in user_inputs.keys() and message.text not in ["/new",
                                                                                                               "/end"])
 
 
