@@ -15,8 +15,8 @@ os.environ["GROQ_API_KEY"] = groq_key
 
 rate_limiter = get_rate_limiter()
 model = "llama3-70b-8192"
-llm = ChatGroq(model=model, temperature=1)
-llm_limited = ChatGroq(model=model, temperature=1, rate_limiter=rate_limiter)
+llm = ChatGroq(model=model, temperature=0.5)
+llm_limited = ChatGroq(model=model, temperature=0.5, rate_limiter=rate_limiter)
 
 make_netlists()
 known_circuits_names_str = get_known_circuits_names_str()
