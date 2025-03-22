@@ -19,7 +19,8 @@ def description_to_simple_circuits_descriptions_tool(llm: ChatGroq, known_circui
                 f"создать сложную схему на основе следующего "
                 f"описания: \"{query}\". Помоги мне среди "
                 f"библиотеки выбрать минимальное количество "
-                f"схем, при помощи которых можно будет "
+                f"схем (следи, чтобы найденные схемы были сильно "
+                f"различны), при помощи которых можно будет "
                 f"составить схему, которую хочет мой друг."
             )
         ]
@@ -94,7 +95,7 @@ def filename_to_netlist_b64_tool():
     )
 
 def combine_netlists_b64s_tool(llm):
-    def combine_netlists(netlists: list[str], description: str) -> str:
+    def combine_netlists(description: str, *netlists) -> str:
         netlists_str = ""
 
         for i, netlist in enumerate(netlists, start=1):
@@ -122,8 +123,8 @@ def combine_netlists_b64s_tool(llm):
         description="Объединяет несколько base64 репрезентаций netlist'ов в один combined netlist (его base64 репрезентацию) на основе их содержимого и описания схемы.\n"
                     "\n"
                     "Args:\n"
-                    "    netlists (list[str]): A list of base64 representations of netlists' contents (full contents!!!)\n"
-                    "    description (str): Initial description of circuit user wants.\n"
+                    "   description (str): Initial description of circuit user wants.\n"
+                    "   netlists (list[str]): A list of base64 representations of netlists' contents (full contents!!!)\n"
                     "\n"
                     "Returns:\n"
                     "    str: Netlist which is a combination of small netlists.",
