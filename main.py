@@ -1,5 +1,5 @@
 # используемые библиотеки
-# langgraph langchain langchain-groq langchain-community langchain-huggingface faiss-cpu pyTelegramBotAPI sentence-transformers spicelib unstructured
+# langgraph langchain langchain-groq langchain-community langchain-huggingface faiss-cpu pyTelegramBotAPI sentence-transformers spicelib unstructured pydub gTTS ffmpeg-python SpeechRecognition
 
 import os
 
