@@ -231,7 +231,7 @@ def convert_mp3_to_ogg(mp3_path: str, ogg_path: str):
     (
         ffmpeg
         .input(mp3_path)
-        .output(ogg_path, format='ogg')
+        .output(ogg_path, format='ogg', **{"c:a": "libopus", "b:a": "32k", "ar": "48000"})
         .run(overwrite_output=True)
     )
 
