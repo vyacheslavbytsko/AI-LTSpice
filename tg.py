@@ -1,5 +1,4 @@
 import threading
-import uuid
 from functools import partial
 
 from langchain_community.tools import HumanInputRun
@@ -16,7 +15,7 @@ from telebot.types import Message, BotCommand
 from misc import voice_message_to_text, text_to_voice_message
 from tools import simple_circuit_description_to_descriptions_and_filenames_tool, \
     description_to_simple_circuits_descriptions_tool, combine_netlists_b64s_tool, send_asc_to_user_tool, \
-    filename_to_netlist_b64_tool, netlist_b64_to_asc_tool
+    filename_to_netlist_b64_tool, netlist_b64_to_asc_tool, send_netlist_b64_to_user_tool
 
 
 class States(StatesGroup):
@@ -53,7 +52,6 @@ def start_conversation(message: Message, bot: TeleBot, state: StateContext,
 
     with state.data() as data:
         data["messages"] = [system_message]
-        data["id"] = str(uuid.uuid4())
 
     answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
 
@@ -76,6 +74,7 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                 combine_netlists_b64s_tool(llm),
                 # TODO: apply_parameters_to_netlist_b64(),
                 # TODO: check_for_errors_tool(),
+                send_netlist_b64_to_user_tool(message.chat.id, bot),
                 netlist_b64_to_asc_tool(),
                 send_asc_to_user_tool(message.chat.id, bot)
             ], debug=True

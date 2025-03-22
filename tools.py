@@ -119,15 +119,55 @@ def combine_netlists_b64s_tool(llm):
 
     return Tool(
         name="combine_netlists",
-        description="Объединяет несколько netlist'ов в один общий netlist на основе их содержимого и описания схемы.\n"
+        description="Объединяет несколько base64 репрезентаций netlist'ов в один combined netlist (его base64 репрезентацию) на основе их содержимого и описания схемы.\n"
                     "\n"
                     "Args:\n"
-                    "    netlists (list[str]): A list of netlists' contents (full contents!!!)\n"
+                    "    netlists (list[str]): A list of base64 representations of netlists' contents (full contents!!!)\n"
                     "    description (str): Initial description of circuit user wants.\n"
                     "\n"
                     "Returns:\n"
                     "    str: Netlist which is a combination of small netlists.",
         func=lambda netlists, description: combine_netlists(netlists, description)
+    )
+
+
+def apply_parameters_to_netlist_b64_tool(llm):
+    def apply_parameters_to_netlist_b64(llm, netlist, description):
+        netlist_str = base64.b64decode(netlist.encode("utf-8")).decode("utf-8")
+
+        messages = [
+            HumanMessage(
+                f"Мой друг составил netlist:\n\n"
+                f"{netlist}\n\nПожалуйста, проверь, "
+                f"что он соответствует описанию: \"{description}\". "
+                f"Если он не соответствует описанию, измени netlist "
+                f"и выведи новый. Если соответствует - просто "
+                f"заново выведи netlist."
+            )
+        ]
+
+        response = llm.invoke(messages)
+
+        messages.append(AIMessage(response.content))
+
+        messages.append(
+            HumanMessage("Выведи ТОЛЬКО готовый netlist. Не должно быть ничего лишнего."))
+
+        response = llm.invoke(messages)
+
+        return base64.b64encode(response.content.encode("utf-8")).decode("utf-8")
+
+    return Tool(
+        name="apply_parameters_to_netlist_b64",
+        description="Given the base64 representation of combined netlist, applies parameters from initial description and return base64 representation of final netlist.\n"
+                    "\n"
+                    "Args:\n"
+                    "   netlist (str): A base64 representation of combined netlist\n"
+                    "   description (str): Initial description of circuit user wants.\n"
+                    "\n"
+                    "Returns:\n"
+                    "   str: A base64 representation of FINAL netlist. You can now convert it to .asc file.",
+        func=lambda netlist, description: apply_parameters_to_netlist_b64(llm, netlist, description)
     )
 
 
@@ -292,10 +332,6 @@ def send_asc_to_user_tool(chat_id: int, bot: TeleBot):
 def send_netlist_b64_to_user_tool(chat_id: int, bot: TeleBot):
 
     def send_netlist_b64_to_user(chat_id: int, bot: TeleBot, netlist: str):
-        print("!!!!!!!")
-        print(netlist)
-        print("!!!!!!!")
-
         netlist_str = base64.b64decode(netlist.encode("utf-8")).decode("utf-8")
         file_obj = io.BytesIO(netlist_str.encode("utf-8"))
         file_obj.name = "circuit.net"
