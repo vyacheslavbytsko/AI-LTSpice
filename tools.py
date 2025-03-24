@@ -395,7 +395,7 @@ def get_netlist_b64_for_diode_bridge_tool():
             ".lib C:\\users\\vyacheslav\\AppData\\Local\\LTspice\\lib\\cmp\\standard.dio"
         ]
 
-        return base64_to_text("\n".join(netlist))
+        return text_to_base64("\n".join(netlist))
 
     return Tool(
         name="get_netlist_b64_for_diode_bridge",
