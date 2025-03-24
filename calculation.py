@@ -33,18 +33,3 @@ def calculate_rc_low_pass_filter(f_c, Z, n):
         C = 1 / (2 * math.pi * fc_i * R)
         rc_pairs.append((R, C))
     return rc_pairs
-
-
-def calculate_butterworth_filter(f_c, R, n, first_element_C=True):
-    g = [2 * np.sin((2 * k - 1) * np.pi / (2 * n)) for k in range(1, n + 1)]
-    C = []
-    L = []
-    for i, g_k in enumerate(g):
-        if (first_element_C and i % 2 == 0) or (not(first_element_C) and i % 2 != 0):
-            C_k = g_k / (2 * np.pi * f_c * R)
-            C.append(C_k)
-        else:
-            L_k = (R * g_k) / (2 * np.pi * f_c)
-            L.append(L_k)
-
-    return C, L

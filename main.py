@@ -24,6 +24,6 @@ netlists_descriptions = get_netlists_descriptions(llm)
 split_netlists_descriptions = get_split_netlists_descriptions(netlists_descriptions)
 netlists_descriptions_vector_store = get_netlists_descriptions_vector_store(split_netlists_descriptions)
 
-system_message = SystemMessage("Ты инженер LTSpice. Ты умеешь составлять netlistы схем на основе запроса пользователя.")
+system_message = SystemMessage("Ты инженер LTSpice. Ты умеешь составлять netlistы схем на основе запроса пользователя. Общайся с пользователем на русском языке.")
 
 start_tg_bot(tg_token, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str)
