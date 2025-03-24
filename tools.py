@@ -1,17 +1,12 @@
-import base64
 import io
 import math
 import uuid
 
 import numpy as np
-from langchain_community.vectorstores import FAISS
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.tools import Tool, StructuredTool
-from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
 from telebot import TeleBot
-
-from misc import get_default_mapping, round16, get_pin_positions, text_to_base64, base64_to_text
 
 
 """def description_to_simple_circuits_descriptions_tool(llm: ChatGroq, known_circuits: str):

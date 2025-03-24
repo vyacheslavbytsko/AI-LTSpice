@@ -2,7 +2,6 @@ import threading
 from functools import partial
 
 from langchain_community.tools import HumanInputRun
-from langchain_community.vectorstores import FAISS
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
@@ -40,8 +39,7 @@ def send_start_message(message: Message, bot: TeleBot):
 # Работа с диалогом
 
 def start_conversation(message: Message, bot: TeleBot, state: StateContext,
-                       llm: ChatGroq, netlists_descriptions_vector_store: FAISS, system_message: SystemMessage,
-                       known_circuits_names_str: str):
+                       llm: ChatGroq, system_message: SystemMessage):
     print("Получили команду /new")
 
     if state.get() is not None:
@@ -53,12 +51,11 @@ def start_conversation(message: Message, bot: TeleBot, state: StateContext,
     with state.data() as data:
         data["messages"] = [system_message]
 
-    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
+    answer_in_conversation(message, bot, llm, state)
 
 
 def answer_in_conversation(message: Message, bot: TeleBot,
-                           llm: ChatGroq, netlists_descriptions_vector_store: FAISS,
-                           known_circuits_names_str: str, state: StateContext):
+                           llm: ChatGroq, state: StateContext):
     with state.data() as data:
         print(f"chat {message.chat.id}: перед ответом LLM было {len(data["messages"])} сообщений")
         agent = create_react_agent(
@@ -99,21 +96,19 @@ def answer_in_conversation(message: Message, bot: TeleBot,
 
 
 def handle_conversation_message(message: Message, bot: TeleBot,
-                                llm: ChatGroq, netlists_descriptions_vector_store: FAISS,
-                                known_circuits_names_str: str, state: StateContext):
+                                llm: ChatGroq, state: StateContext):
     print(f"Получили сообщение, будучи в диалоге. {state.get()}")
     with state.data() as data:
         data["messages"].append(HumanMessage(message.text))
-    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
+    answer_in_conversation(message, bot, llm, state)
 
 
 def handle_conversation_voice_message(message: Message, bot: TeleBot,
-                                      llm: ChatGroq, netlists_descriptions_vector_store: FAISS,
-                                      known_circuits_names_str: str, state: StateContext):
+                                      llm: ChatGroq, state: StateContext):
     print(f"Получили голосовое сообщение, будучи в диалоге. {state.get()}")
     with state.data() as data:
         data["messages"].append(HumanMessage(voice_message_to_text(message, bot)))
-    answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
+    answer_in_conversation(message, bot, llm, state)
 
 
 def end_conversation(message: Message, bot: TeleBot, state: StateContext):
@@ -186,41 +181,36 @@ def handle_voice_input(message: Message, bot: TeleBot, state: StateContext):
 
 # Регистрация хэндлеров
 
-def register_handlers(bot: TeleBot, llm: ChatGroq, netlists_descriptions_vector_store, system_message,
-                      known_circuits_names_str):
+def register_handlers(bot: TeleBot, llm: ChatGroq, system_message):
     bot.register_message_handler(partial(send_start_message, bot=bot), commands=['start'])
     bot.register_message_handler(partial(start_conversation, bot=bot, llm=llm,
-                                         netlists_descriptions_vector_store=netlists_descriptions_vector_store,
-                                         system_message=system_message,
-                                         known_circuits_names_str=known_circuits_names_str), commands=['new'])
-    bot.register_message_handler(partial(handle_conversation_message, bot=bot, llm=llm,
-                                         netlists_descriptions_vector_store=netlists_descriptions_vector_store,
-                                         known_circuits_names_str=known_circuits_names_str),
+                                         system_message=system_message), commands=['new'])
+    bot.register_message_handler(partial(handle_conversation_message, bot=bot, llm=llm),
                                  content_types=['text'],
                                  func=lambda message: message.chat.id not in user_inputs.keys() and message.text not in [
                                      "/new", "/end"], state=States.in_conversation)
     bot.register_message_handler(partial(end_conversation, bot=bot), commands=['end'], state=States.in_conversation)
     bot.register_message_handler(partial(handle_input, bot=bot), content_types=['text'],
-                                 func=lambda message: message.chat.id in user_inputs.keys() and message.text not in ["/new",
-                                                                                                              "/end"])
-    bot.register_message_handler(partial(handle_conversation_voice_message, bot=bot, llm=llm,
-                                         netlists_descriptions_vector_store=netlists_descriptions_vector_store,
-                                         known_circuits_names_str=known_circuits_names_str),
+                                 func=lambda message: message.chat.id in user_inputs.keys() and message.text not in [
+                                     "/new",
+                                     "/end"])
+    bot.register_message_handler(partial(handle_conversation_voice_message, bot=bot, llm=llm),
                                  content_types=['voice'],
                                  func=lambda message: message.chat.id not in user_inputs.keys() and message.text not in [
                                      "/new", "/end"], state=States.in_conversation)
     bot.register_message_handler(partial(handle_voice_input, bot=bot), content_types=['voice'],
-                                 func=lambda message: message.chat.id in user_inputs.keys() and message.text not in ["/new",
-                                                                                                              "/end"])
+                                 func=lambda message: message.chat.id in user_inputs.keys() and message.text not in [
+                                     "/new",
+                                     "/end"])
 
 
 # Запуск бота
 
-def start_tg_bot(tg_token, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str):
+def start_tg_bot(tg_token, llm, system_message):
     state_storage = StateMemoryStorage()
     bot = TeleBot(tg_token, state_storage=state_storage, use_class_middlewares=True)
 
-    register_handlers(bot, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str)
+    register_handlers(bot, llm, system_message)
 
     bot.add_custom_filter(StateFilter(bot))
     bot.setup_middleware(StateMiddleware(bot))
