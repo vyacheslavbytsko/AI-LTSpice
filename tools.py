@@ -383,7 +383,7 @@ def get_netlist_b64_for_butterworth_lowpass_filter_tool():
             f".end"
         ])
 
-        return text_to_base64(netlist)
+        return text_to_base64("\n".join(netlist))
 
     class GetNetlistInput(BaseModel):
         f: float = Field(description="Частота среза, Гц")
