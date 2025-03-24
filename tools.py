@@ -14,7 +14,7 @@ from telebot import TeleBot
 from misc import get_default_mapping, round16, get_pin_positions, text_to_base64, base64_to_text
 
 
-def description_to_simple_circuits_descriptions_tool(llm: ChatGroq, known_circuits: str):
+"""def description_to_simple_circuits_descriptions_tool(llm: ChatGroq, known_circuits: str):
     def process_description(query, known_circuits):
         messages = [
             HumanMessage(
@@ -98,9 +98,9 @@ def filename_to_netlist_b64_tool():
         name="filename_to_netlist_b64",
         description="Returns the base64 representation of netlist of circuit based on the filename of description.",
         func=lambda query: filename_to_netlist_b64(query)
-    )
+    )"""
 
-def combine_netlists_b64s_tool(llm):
+def combine_netlists_tool(llm):
     def combine_netlists(netlists: list[str]) -> str:
         if len(netlists) == 0:
             return "You did not provide any netlist. Please before using this tool wait until you get proper netlists."
@@ -111,7 +111,7 @@ def combine_netlists_b64s_tool(llm):
         netlists_str = ""
 
         for i, netlist in enumerate(netlists, start=1):
-            netlists_str += f"\n* Netlist {i}:\n{base64_to_text(netlist)}\n"
+            netlists_str += f"\n* Netlist {i}:\n{netlist}\n"
 
         messages = [HumanMessage(
             "Соедини netlist'ы в один. У каждого netlist'а есть INPUT_NODE и OUTPUT_NODE, соединяй нетлисты именно в этих нодах. У первого нетлиста должен остаться INPUT_NODE, у последнего должен остаться OUTPUT_NODE. Названия нод, которые будут соединять нетлисты, может быть, например, CONNECTION_NODE_1, CONNECTION_NODE_2 и так далее.\n\n"
@@ -125,20 +125,20 @@ def combine_netlists_b64s_tool(llm):
 
         response = llm.invoke(messages)
 
-        return base64.b64encode(response.content.encode("utf-8")).decode("utf-8")
+        return response.content
 
     class CombineNetlistsInput(BaseModel):
-        netlists: list[str] = Field(description="A list of base64 representations of netlists' contents (full contents!!!). Strings cannot be empty.")
+        netlists: list[str] = Field(description="A list of netlists. Strings cannot be empty.")
 
     return StructuredTool.from_function(
         func=combine_netlists,
         args_schema=CombineNetlistsInput,
         name="combine_netlists",
-        description="Объединяет несколько base64 репрезентаций netlist'ов (полные base64 строки) в один combined netlist (его base64 репрезентацию). Этот инструмент не может вызываться вместе с другими инструментами."
+        description="Объединяет несколько netlist'ов в один netlist. Этот инструмент не может вызываться вместе с другими инструментами."
     )
 
 
-def apply_parameters_to_netlist_b64_tool(llm):
+"""def apply_parameters_to_netlist_b64_tool(llm):
     def apply_parameters_to_netlist_b64(netlist, description):
         netlist_str = base64.b64decode(netlist.encode("utf-8")).decode("utf-8")
 
@@ -183,18 +183,7 @@ def netlist_b64_to_asc_tool(sheet_size: str = "SHEET 1 800 600",
                    sheet_size: str = "SHEET 1 800 600",
                    directive_text_coords: str = "TEXT 450 300 Left 2",
                    comment_text_default: str = "TEXT 80 -250 Left 4") -> str:
-        """
-        Универсально преобразует содержимое .net файла в .asc файл.
-
-        Для каждого описания компонента:
-          • Определяется mapping по имени (см. get_default_mapping).
-          • Компоненты располагаются на сетке с начальным положением (comp_start_x, comp_start_y) и шагом, кратным 16.
-          • Пины компонента вычисляются относительно его центра, координаты округляются до кратных 16.
-          • Узлы (флаги) собираются из соединений, располагаются на отдельной сетке.
-          • Для каждого пина компонента генерируется провод (WIRE), соединяющий его с соответствующим флагом.
-
-        Возвращается содержимое .asc файла без дополнительных строк (.backanno, .end).
-        """
+                   
         # Настройки сетки для компонентов (все значения кратны 16)
         comp_start_x = 48
         comp_start_y = 48
@@ -331,10 +320,10 @@ def send_asc_to_user_tool(chat_id: int, bot: TeleBot):
         name="send_asc_to_user",
         description="Sends .asc file content to the user.",
         func=lambda asc_file_content: send_asc_to_user(chat_id, bot, asc_file_content)
-    )
+    )"""
 
 
-def get_netlist_b64_for_butterworth_lowpass_filter_tool():
+def get_netlist_for_butterworth_lowpass_filter_tool():
     def butterworth_low_pass(f, Z, n):
         id_of_scheme = str(uuid.uuid4())[:4]
 
@@ -371,7 +360,7 @@ def get_netlist_b64_for_butterworth_lowpass_filter_tool():
             netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_001", "INPUT_NODE")
             netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_{(num_of_Cs+2):03}", "OUTPUT_NODE")
 
-        return text_to_base64("\n".join(netlist))
+        return "\n".join(netlist)
 
     class GetNetlistInput(BaseModel):
         f: float = Field(description="Частота среза, Гц")
@@ -379,14 +368,14 @@ def get_netlist_b64_for_butterworth_lowpass_filter_tool():
         n: int = Field(description="Количество реактивных элементов (порядок фильтра)")
 
     return StructuredTool.from_function(
-        name="get_netlist_b64_for_butterworth_lowpass_filter",
-        description="Возвращает base64 репрезентацию netlist для фильтра низких частот Баттерворта.",
+        name="get_netlist_for_butterworth_lowpass_filter",
+        description="Возвращает netlist для фильтра низких частот Баттерворта.",
         args_schema=GetNetlistInput,
         func=butterworth_low_pass
     )
 
 
-def get_netlist_b64_for_diode_bridge_tool():
+def get_netlist_for_diode_bridge_tool():
     def diode_bridge():
         netlist = [
             f"D INPUT_NODE OUTPUT_NODE D",
@@ -398,16 +387,16 @@ def get_netlist_b64_for_diode_bridge_tool():
             ".lib C:\\users\\vyacheslav\\AppData\\Local\\LTspice\\lib\\cmp\\standard.dio"
         ]
 
-        return text_to_base64("\n".join(netlist))
+        return "\n".join(netlist)
 
     return Tool(
-        name="get_netlist_b64_for_diode_bridge",
-        description="Возвращает base64 репрезентацию netlist'а диодного моста.",
+        name="get_netlist_for_diode_bridge",
+        description="Возвращает netlist диодного моста.",
         func=lambda _: diode_bridge()
     )
 
 
-def get_netlist_b64_for_bessel_lowpass_filter_tool():
+def get_netlist_for_bessel_lowpass_filter_tool():
     def bessel_polynomial_coeffs(n):
         coeffs = np.zeros(n + 1)
         for k in range(n + 1):
@@ -463,7 +452,7 @@ def get_netlist_b64_for_bessel_lowpass_filter_tool():
             netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_001", "INPUT_NODE")
             netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_{(num_of_Cs + 2):03}", "OUTPUT_NODE")
 
-        return text_to_base64("\n".join(netlist))
+        return "\n".join(netlist)
 
     class GetNetlistInput(BaseModel):
         order: int = Field(description="Количество реактивных элементов (порядок фильтра)")
@@ -471,14 +460,14 @@ def get_netlist_b64_for_bessel_lowpass_filter_tool():
         impedance: float = Field(description="Характеристическое сопротивление, Ом")
 
     return StructuredTool.from_function(
-        name="get_netlist_b64_for_bessel_lowpass_filter",
-        description="Возвращает base64 репрезентацию netlist для фильтра низких частот Бесселя.",
+        name="get_netlist_for_bessel_lowpass_filter",
+        description="Возвращает netlist для фильтра низких частот Бесселя.",
         args_schema=GetNetlistInput,
         func=bessel_low_pass
     )
 
 
-def get_netlist_b64_for_dc_dc_boost_converter_tool():
+def get_netlist_for_dc_dc_boost_converter_tool():
     def dc_dc_boost_converter(Fs, D):
         id_of_scheme = str(uuid.uuid4())[:4]
 
@@ -493,26 +482,26 @@ def get_netlist_b64_for_dc_dc_boost_converter_tool():
             f"C OUTPUT_NODE 0 10u",
         ]
 
-        return text_to_base64("\n".join(netlist))
+        return "\n".join(netlist)
 
     class GetNetlistInput(BaseModel):
         Fs: float = Field(description="Switching frequency, Hz", default=16000.0)
         D: float = Field(description="Скважность", default=0.5)
 
     return StructuredTool.from_function(
-        name="get_netlist_b64_for_dc_dc_boost_converter",
-        description="Возвращает base64 репрезентацию netlist для преобразователя повышающего типа (boost converter).",
+        name="get_netlist_for_dc_dc_boost_converter",
+        description="Возвращает netlist для преобразователя повышающего типа (boost converter).",
         args_schema=GetNetlistInput,
         func=dc_dc_boost_converter
     )
 
 
-def finalize_netlist_b64_tool():
-    def finalize_netlist(netlist_b64, v, analysis):
-        if netlist_b64 == "":
+def finalize_netlist_tool():
+    def finalize_netlist(netlist, v, analysis):
+        if netlist == "":
             return "Provided netlist is empty."
 
-        old_netlist = base64_to_text(netlist_b64).split("\n")
+        old_netlist = netlist.split("\n")
         new_netlist = [
             "* Generated by @LTSpice_bot"
         ]
@@ -571,10 +560,10 @@ def finalize_netlist_b64_tool():
             f".end"
         ])
 
-        return text_to_base64("\n".join(new_netlist))
+        return "\n".join(new_netlist)
 
     class GetNetlistInput(BaseModel):
-        netlist_b64: str = Field(description="Base64 репрезентация netlistа, который необходимо довести до конца.")
+        netlist: str = Field(description="Netlist, который необходимо довести до конца.")
         v: str = Field(description="Тип источника напряжения. Один из ['DC', 'SINE']")
         analysis: str = Field(description="Применяемый анализ. Один из ['transient', 'ac']")
 
@@ -586,10 +575,10 @@ def finalize_netlist_b64_tool():
     )
 
 
-def send_netlist_b64_to_user_tool(chat_id: int, bot: TeleBot):
+def send_netlist_to_user_tool(chat_id: int, bot: TeleBot):
 
-    def send_netlist_b64_to_user(chat_id: int, bot: TeleBot, netlist: str):
-        netlist_str = base64.b64decode(netlist.encode("utf-8")).decode("utf-8")
+    def send_netlist_to_user(chat_id: int, bot: TeleBot, netlist: str):
+        netlist_str = netlist
         file_obj = io.BytesIO(netlist_str.encode("utf-8"))
         file_obj.name = "circuit.net"
         bot.send_document(chat_id, file_obj)
@@ -598,6 +587,6 @@ def send_netlist_b64_to_user_tool(chat_id: int, bot: TeleBot):
 
     return Tool(
         name="send_netlist_to_user",
-        description="Sends base64 representation of netlist to the user.",
-        func=lambda asc_file_content: send_netlist_b64_to_user(chat_id, bot, asc_file_content)
+        description="Sends netlist to the user.",
+        func=lambda asc_file_content: send_netlist_to_user(chat_id, bot, asc_file_content)
     )
