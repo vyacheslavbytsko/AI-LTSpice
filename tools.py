@@ -474,6 +474,35 @@ def get_netlist_b64_for_bessel_lowpass_filter_tool():
     )
 
 
+def get_netlist_b64_for_dc_dc_boost_converter_tool():
+    def dc_dc_boost_converter(Fs, D):
+        id_of_scheme = str(uuid.uuid4())[:4]
+
+        netlist = [
+            f"L INPUT_NODE N_{id_of_scheme}_001 10m",
+            f"S 0 N_{id_of_scheme}_001 N_{id_of_scheme}_002 N_{id_of_scheme}_003 MOSFET",
+            f".model MOSFET SW(Ron=1u Roff=100Meg Vt=90)",
+            f"V N_{id_of_scheme}_002 N_{id_of_scheme}_003 PULSE(0 100 0 1n 1n {D/Fs} {1/Fs} 1Meg)",
+            f"D N_{id_of_scheme}_001 OUTPUT_NODE D",
+            ".model D D",
+            ".lib C:\\users\\vyacheslav\\AppData\\Local\\LTspice\\lib\\cmp\\standard.dio",
+            f"C OUTPUT_NODE 0 10u",
+        ]
+
+        return text_to_base64("\n".join(netlist))
+
+    class GetNetlistInput(BaseModel):
+        Fs: float = Field(description="Switching frequency, Hz")
+        D: float = Field(description="Скважность")
+
+    return StructuredTool.from_function(
+        name="get_netlist_b64_for_dc_dc_boost_converter",
+        description="Возвращает base64 репрезентацию netlist для преобразователя повышающего типа (boost converter).",
+        args_schema=GetNetlistInput,
+        func=dc_dc_boost_converter
+    )
+
+
 def finalize_netlist_b64_tool():
     def finalize_netlist(netlist_b64):
         old_netlist = base64_to_text(netlist_b64).split("\n")
@@ -486,6 +515,7 @@ def finalize_netlist_b64_tool():
         num_of_Ls = 0
         num_of_Vs = 0
         num_of_Ds = 0
+        num_of_Ss = 0
 
         flag_for_v_minus = False
 
@@ -509,6 +539,9 @@ def finalize_netlist_b64_tool():
             elif line.startswith("D"):
                 num_of_Ds += 1
                 newline = f"D{num_of_Ds} {line[2:]}"
+            elif line.startswith("S"):
+                num_of_Ss += 1
+                newline = f"S{num_of_Ss} {line[2:]}"
             else:
                 newline = line
             newline = newline.replace("OUTPUT_NODE", "0")
