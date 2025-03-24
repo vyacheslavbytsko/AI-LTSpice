@@ -349,10 +349,8 @@ def send_netlist_b64_to_user_tool(chat_id: int, bot: TeleBot):
 
 def get_netlist_b64_for_butterworth_lowpass_filter_tool():
     def butterworth_low_pass(f, Z, n):
-        netlist = [
-            f"V1 N001 0 SINE(1 1 {f}) AC 1",
-            f"R1 N002 N001 {Z}",
-        ]
+
+        netlist = []
 
         num_of_Ls = 0
         num_of_Cs = 0
@@ -377,18 +375,22 @@ def get_netlist_b64_for_butterworth_lowpass_filter_tool():
                 num_of_Ls += 1
 
         netlist.extend([
+            f"V1 N001 0 SINE(1 1 {f}) AC 1",
+            f"R1 N002 N001 {Z}",
             f"R2 0 N{(2 + num_of_Ls):03} {Z}",
             f".ac dec 1000 10 {f}",
             f".backanno",
             f".end"
         ])
 
+        print("!!!!!!!!!\n")
+        print("\n".join(netlist))
         return text_to_base64("\n".join(netlist))
 
     class GetNetlistInput(BaseModel):
         f: float = Field(description="Частота среза, Гц")
         Z: float = Field(description="Характеристическое сопротивление, Ом")
-        n: int = Field(description="Количество реактивных элементов")
+        n: int = Field(description="Количество реактивных элементов (порядок фильтра)")
 
     return StructuredTool.from_function(
         name="get_netlist_b64_for_butterworth_lowpass_filter",
