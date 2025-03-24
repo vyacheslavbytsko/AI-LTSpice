@@ -125,18 +125,16 @@ def combine_netlists_b64s_tool(llm):
 
         response = llm.invoke(messages)
 
-        print("ГОТОВЫЙ NETLIST:", response.content)
-
         return base64.b64encode(response.content.encode("utf-8")).decode("utf-8")
 
     class CombineNetlistsInput(BaseModel):
-        netlists: list[str] = Field(description="A list of base64 representations of netlists' contents (full contents!!!)")
+        netlists: list[str] = Field(description="A list of base64 representations of netlists' contents (full contents!!!). Strings cannot be empty.")
 
     return StructuredTool.from_function(
         func=combine_netlists,
         args_schema=CombineNetlistsInput,
         name="combine_netlists",
-        description="Объединяет несколько base64 репрезентаций netlist'ов в один combined netlist (его base64 репрезентацию). Нельзя использовать в самом начале рассуждения."
+        description="Объединяет несколько base64 репрезентаций netlist'ов (полные base64 строки) в один combined netlist (его base64 репрезентацию). Этот инструмент не может вызываться вместе с другими инструментами."
     )
 
 
