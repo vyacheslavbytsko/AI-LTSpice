@@ -24,21 +24,6 @@ netlists_descriptions = get_netlists_descriptions(llm)
 split_netlists_descriptions = get_split_netlists_descriptions(netlists_descriptions)
 netlists_descriptions_vector_store = get_netlists_descriptions_vector_store(split_netlists_descriptions)
 
-system_message = SystemMessage("Ты инженер LTSpice. Спроси у пользователя, "
-                               "какую схему он хочет получить, разбей эту схему на составляющие, "
-                               "получи netlist'ы каждой схемы (у тебя для этого есть инструмент "
-                               "simple_circuit_description_to_descriptions_and_filenames), "
-                               "и если окажется, что netlist'ов из описания оказалось несколько, "
-                               "объедини эти netlist'ы в один netlist (передавай в инструмент combine_netlists "
-                               "base64 репрезентации netlist'ов полностью!!!), "
-                               "потом примени к netlist'у изначальные параметры и получи final netlist, "
-                               "преобразуй final netlist в .asc файл, отправь пользователю netlist при "
-                               "помощи инструмента send_netlist_to_user, "
-                               "отправь пользователю .asc файл при помощи инструмента send_asc_to_user, "
-                               "затем напиши пользователю сообщение "
-                               "в духе \"Ура, всё получилось!\". Точно удостоверься, что отправил netlist пользователю. Не забудь отправить netlist пользователю. "
-                               "Используй доступные инструменты. Когда пользователь сообщает, что ты что-то "
-                               "сделал неверно, не стесняйся использовать инструменты ещё раз. "
-                               "Разговаривай с пользователем на русском языке.")
+system_message = SystemMessage("Ты инженер LTSpice. Ты умеешь составлять netlistы схем на основе запроса пользователя.")
 
 start_tg_bot(tg_token, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str)

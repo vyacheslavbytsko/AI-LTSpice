@@ -1,3 +1,4 @@
+import base64
 import glob
 import math
 import os.path
@@ -289,4 +290,12 @@ def text_to_voice_message(chat_id: int, bot: TeleBot, text: str):
             bot.send_voice(chat_id, audio_file)
             os.remove(voice_path)
             os.remove(mp3_path)
+
+
+def text_to_base64(text):
+    return base64.b64encode(text.encode("utf-8")).decode("utf-8")
+
+
+def base64_to_text(b64):
+    return base64.b64decode(b64.encode("utf-8")).decode("utf-8")
 

@@ -16,7 +16,7 @@ from misc import voice_message_to_text, text_to_voice_message
 from tools import simple_circuit_description_to_descriptions_and_filenames_tool, \
     description_to_simple_circuits_descriptions_tool, combine_netlists_b64s_tool, send_asc_to_user_tool, \
     filename_to_netlist_b64_tool, netlist_b64_to_asc_tool, send_netlist_b64_to_user_tool, \
-    apply_parameters_to_netlist_b64_tool
+    apply_parameters_to_netlist_b64_tool, get_netlist_b64_for_butterworth_lowpass_filter_tool
 
 
 class States(StatesGroup):
@@ -69,14 +69,16 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                     prompt_func=get_prompt_func_for_chat_id(bot, message.chat.id, state),
                     input_func=get_input_func_for_chat_id(message.chat.id)
                 ),
-                description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
-                simple_circuit_description_to_descriptions_and_filenames_tool(netlists_descriptions_vector_store),
-                filename_to_netlist_b64_tool(),
-                combine_netlists_b64s_tool(llm),
-                apply_parameters_to_netlist_b64_tool(llm),
+                get_netlist_b64_for_butterworth_lowpass_filter_tool(),
+                #combine_netlists_b64s_tool(llm),
+                #description_to_simple_circuits_descriptions_tool(llm, known_circuits_names_str),
+                #simple_circuit_description_to_descriptions_and_filenames_tool(netlists_descriptions_vector_store),
+                #filename_to_netlist_b64_tool(),
+                #combine_netlists_b64s_tool(llm),
+                #apply_parameters_to_netlist_b64_tool(llm),
                 send_netlist_b64_to_user_tool(message.chat.id, bot),
-                netlist_b64_to_asc_tool(),
-                send_asc_to_user_tool(message.chat.id, bot)
+                #netlist_b64_to_asc_tool(),
+                #send_asc_to_user_tool(message.chat.id, bot)
             ], debug=True
         )
 
