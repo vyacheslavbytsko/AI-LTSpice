@@ -382,21 +382,26 @@ def get_netlist_b64_for_butterworth_lowpass_filter_tool():
     )
 
 
-"""def get_netlist_b64_for_diode_bridge_tool():
-    def diode_bridge(current, frequency, ripple_voltage):
+def get_netlist_b64_for_diode_bridge_tool():
+    def diode_bridge():
+        netlist = [
+            f"D INPUT_NODE OUTPUT_NODE D",
+            f"D 0 V_MINUS_NODE D",
+            f"D V_MINUS_NODE OUTPUT_NODE D",
+            f"D 0 INPUT_NODE D",
+            f"C OUTPUT_NODE 0 100u",
+            f"R OUTPUT_NODE 0 250",
+            ".model D D",
+            ".lib C:\\users\\vyacheslav\\AppData\\Local\\LTspice\\lib\\cmp\\standard.dio"
+        ]
 
+        return base64_to_text(netlist)
 
-    class GetNetlistInput(BaseModel):
-        current: float = Field(description="потребляемый ток (А)")
-        frequency: float = Field(description="частота выпрямленного напряжения (Гц)")
-        ripple_voltage: float = Field(description="допустимое напряжение пульсаций (В)")
-
-    return StructuredTool.from_function(
-        name="get_netlist_b64_for_butterworth_lowpass_filter",
+    return Tool(
+        name="get_netlist_b64_for_diode_bridge",
         description="Возвращает base64 репрезентацию netlist'а диодного моста.",
-        args_schema=GetNetlistInput,
-        func=diode_bridge
-    )"""
+        func=lambda: diode_bridge
+    )
 
 
 def get_netlist_b64_for_bessel_lowpass_filter_tool():
@@ -481,27 +486,35 @@ def finalize_netlist_b64_tool():
         num_of_Cs = 0
         num_of_Ls = 0
         num_of_Vs = 0
+        num_of_Ds = 0
+
+        flag_for_v_minus = False
 
         for line in old_netlist:
+            if "V_MINUS_NODE" in line:
+                flag_for_v_minus = True
             if line.startswith("C"):
                 num_of_Cs += 1
-                newline = (f"C{num_of_Cs} {line[2:]}")
+                newline = f"C{num_of_Cs} {line[2:]}"
             elif line.startswith("L"):
                 num_of_Ls += 1
-                newline = (f"L{num_of_Ls} {line[2:]}")
+                newline = f"L{num_of_Ls} {line[2:]}"
             elif line.startswith("V"):
                 num_of_Vs += 1
-                newline = (f"V{num_of_Vs} {line[2:]}")
+                newline = f"V{num_of_Vs} {line[2:]}"
             elif line.startswith("R"):
                 num_of_Rs += 1
-                newline = (f"R{num_of_Rs} {line[2:]}")
+                newline = f"R{num_of_Rs} {line[2:]}"
+            elif line.startswith("D"):
+                num_of_Ds += 1
+                newline = f"D{num_of_Ds} {line[2:]}"
             else:
-                newline = (line)
+                newline = line
             newline = newline.replace("OUTPUT_NODE", "0")
             new_netlist.append(newline)
 
         new_netlist.extend([
-            f"V{num_of_Vs+1} INPUT_NODE 0 SINE(1 1 100000) AC 1",
+            f"V{num_of_Vs+1} INPUT_NODE {"V_MINUS_NODE" if flag_for_v_minus else "0"} SINE(1 1 100000) AC 1",
             f".ac dec 1000 10 100000",
             f".backanno",
             f".end"
