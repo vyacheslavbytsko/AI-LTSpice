@@ -496,6 +496,33 @@ def get_netlist_for_dc_dc_boost_converter_tool():
     )
 
 
+def get_netlist_for_transmission_line_tool():
+    def transmission_line(R1, L, C, R2):
+        id_of_scheme = str(uuid.uuid4())[:4]
+
+        netlist = [
+            f"R N_{id_of_scheme}_1 INPUT_NODE {R1}",
+            f"L N_{id_of_scheme}_001 N_{id_of_scheme}_002 {L}",
+            f"C N_{id_of_scheme}_002 OUTPUT_NODE {C}",
+            f"R N_{id_of_scheme}_002 OUTPUT_NODE {R2}"
+        ]
+
+        return "\n".join(netlist)
+
+    class GetNetlistInput(BaseModel):
+        R1: float = Field(description="Сопротивление первого резистора, Ом")
+        L: float = Field(description="Индуктивность катушки, Гн")
+        C: float = Field(description="Ёмкость конденсатора, Ф")
+        R2: float = Field(description="Проводимость, Ом")
+
+    return StructuredTool.from_function(
+        name="get_netlist_transmission_line",
+        description="Возвращает netlist для одной секции линии передач.",
+        args_schema=GetNetlistInput,
+        func=transmission_line
+    )
+
+
 def finalize_netlist_tool():
     def finalize_netlist(netlist, v, analysis):
         if netlist == "":

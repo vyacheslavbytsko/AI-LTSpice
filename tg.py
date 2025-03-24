@@ -15,7 +15,7 @@ from telebot.types import Message, BotCommand
 from misc import voice_message_to_text, text_to_voice_message
 from tools import get_netlist_for_butterworth_lowpass_filter_tool, get_netlist_for_diode_bridge_tool, \
     get_netlist_for_bessel_lowpass_filter_tool, get_netlist_for_dc_dc_boost_converter_tool, combine_netlists_tool, \
-    finalize_netlist_tool, send_netlist_to_user_tool
+    finalize_netlist_tool, send_netlist_to_user_tool, get_netlist_for_transmission_line_tool
 
 
 class States(StatesGroup):
@@ -72,6 +72,7 @@ def answer_in_conversation(message: Message, bot: TeleBot,
                 get_netlist_for_bessel_lowpass_filter_tool(),
                 get_netlist_for_diode_bridge_tool(),
                 get_netlist_for_dc_dc_boost_converter_tool(),
+                get_netlist_for_transmission_line_tool(),
                 combine_netlists_tool(llm),
                 finalize_netlist_tool(),
                 send_netlist_to_user_tool(message.chat.id, bot)
