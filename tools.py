@@ -3,6 +3,7 @@ import io
 import math
 import uuid
 
+import numpy as np
 from langchain_community.vectorstores import FAISS
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.tools import Tool, StructuredTool
@@ -329,6 +330,146 @@ def send_asc_to_user_tool(chat_id: int, bot: TeleBot):
     )
 
 
+def get_netlist_b64_for_butterworth_lowpass_filter_tool():
+    def butterworth_low_pass(f, Z, n):
+        id_of_scheme = str(uuid.uuid4())[:4]
+
+        netlist = []
+
+        num_of_Ls = 0
+        num_of_Cs = 0
+
+        # Вычисляем коэффициенты Баттерворта g_k
+        g = [2 * math.sin((2 * k - 1) * math.pi / (2 * n)) for k in range(1, n + 1)]
+
+        # Вычисляем значения L и C
+        for k in range(n):
+            if k % 2 == 0:
+                # Расчет конденсатора
+                C = g[k] / (2 * math.pi * f * Z)
+                node = 2 + num_of_Cs
+                netlist.append(f"C N_{id_of_scheme}_{node:03} 0 {C}")
+                num_of_Cs += 1
+            else:
+                # Расчет катушки индуктивности
+                L = (Z * g[k]) / (2 * math.pi * f)
+                node = 2 + num_of_Ls
+                nodeplus1 = node + 1
+                netlist.append(f"L N_{id_of_scheme}_{node:03} N_{id_of_scheme}_{nodeplus1:03} {L}")
+                num_of_Ls += 1
+
+        netlist.extend([
+            f"R N_{id_of_scheme}_002 N_{id_of_scheme}_001 {Z}",
+            f"R N_{id_of_scheme}_{(num_of_Cs+1):03} N_{id_of_scheme}_{(num_of_Cs+2):03} {Z}",
+        ])
+
+        for i in range(len(netlist)):
+            netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_001", "INPUT_NODE")
+            netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_{(num_of_Cs+2):03}", "OUTPUT_NODE")
+
+        return text_to_base64("\n".join(netlist))
+
+    class GetNetlistInput(BaseModel):
+        f: float = Field(description="Частота среза, Гц")
+        Z: float = Field(description="Характеристическое сопротивление, Ом")
+        n: int = Field(description="Количество реактивных элементов (порядок фильтра)")
+
+    return StructuredTool.from_function(
+        name="get_netlist_b64_for_butterworth_lowpass_filter",
+        description="Возвращает base64 репрезентацию netlist для фильтра низких частот Баттерворта.",
+        args_schema=GetNetlistInput,
+        func=butterworth_low_pass
+    )
+
+
+"""def get_netlist_b64_for_diode_bridge_tool():
+    def diode_bridge(current, frequency, ripple_voltage):
+
+
+    class GetNetlistInput(BaseModel):
+        current: float = Field(description="потребляемый ток (А)")
+        frequency: float = Field(description="частота выпрямленного напряжения (Гц)")
+        ripple_voltage: float = Field(description="допустимое напряжение пульсаций (В)")
+
+    return StructuredTool.from_function(
+        name="get_netlist_b64_for_butterworth_lowpass_filter",
+        description="Возвращает base64 репрезентацию netlist'а диодного моста.",
+        args_schema=GetNetlistInput,
+        func=diode_bridge
+    )"""
+
+
+def get_netlist_b64_for_bessel_lowpass_filter_tool():
+    def bessel_polynomial_coeffs(n):
+        coeffs = np.zeros(n + 1)
+        for k in range(n + 1):
+            coeffs[k] = math.factorial(2 * n - k) / (2 ** (n - k) * math.factorial(k) * math.factorial(n - k))
+        return coeffs
+
+    def bessel_low_pass(order, cutoff_freq, impedance):
+        if order < 1:
+            raise ValueError("Порядок фильтра должен быть больше или равен 1")
+
+        # Вычисляем коэффициенты полиномов Бесселя для текущего и предыдущего порядков
+        a_n = bessel_polynomial_coeffs(order)
+
+        # Вычисляем g-значения по рекуррентной формуле
+        g_values = []
+        for k in range(1, order + 1):
+            if k == 1:
+                g = a_n[0] / a_n[1]
+            else:
+                numerator = 4 * (2 * (order - k) + 1) * a_n[k - 2] * a_n[k]
+                denominator = a_n[k - 1] ** 2
+                g = numerator / denominator
+            g_values.append(g)
+
+        id_of_scheme = str(uuid.uuid4())[:4]
+        netlist = []
+
+        num_of_Ls = 0
+        num_of_Cs = 0
+
+        # Денормировка элементов под заданные частоту и импеданс
+        for i, g in enumerate(g_values):
+            if (i) % 2 == 1:  # Нечетные элементы - индуктивности
+                num_of_Ls += 1
+                L = (g * impedance) / (2 * np.pi * cutoff_freq)
+                node = 1 + num_of_Ls
+                nodeplus1 = node + 1
+                netlist.append(f"L N_{id_of_scheme}_{node:03} N_{id_of_scheme}_{nodeplus1:03} {L}")
+                # L_values.append(float(L))
+            else:  # Четные элементы - емкости
+                num_of_Cs += 1
+                C = g / (impedance * 2 * np.pi * cutoff_freq)
+                node = 1 + num_of_Cs
+                netlist.append(f"C N_{id_of_scheme}_{node:03} 0 {C}")
+                # C_values.append(float(C))
+
+        netlist.extend([
+            f"R N_{id_of_scheme}_002 N_{id_of_scheme}_001 {impedance}",
+            f"R N_{id_of_scheme}_{(num_of_Cs + 1):03} N_{id_of_scheme}_{(num_of_Cs + 2):03} {impedance}",
+        ])
+
+        for i in range(len(netlist)):
+            netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_001", "INPUT_NODE")
+            netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_{(num_of_Cs + 2):03}", "OUTPUT_NODE")
+
+        return text_to_base64("\n".join(netlist))
+
+    class GetNetlistInput(BaseModel):
+        order: int = Field(description="Количество реактивных элементов (порядок фильтра)")
+        cutoff_freq: float = Field(description="Частота среза, Гц")
+        impedance: float = Field(description="Характеристическое сопротивление, Ом")
+
+    return StructuredTool.from_function(
+        name="get_netlist_b64_for_bessel_lowpass_filter",
+        description="Возвращает base64 репрезентацию netlist для фильтра низких частот Бесселя.",
+        args_schema=GetNetlistInput,
+        func=bessel_low_pass
+    )
+
+
 def finalize_netlist_b64_tool():
     def finalize_netlist(netlist_b64):
         old_netlist = base64_to_text(netlist_b64).split("\n")
@@ -394,57 +535,3 @@ def send_netlist_b64_to_user_tool(chat_id: int, bot: TeleBot):
         description="Sends base64 representation of netlist to the user.",
         func=lambda asc_file_content: send_netlist_b64_to_user(chat_id, bot, asc_file_content)
     )
-
-
-def get_netlist_b64_for_butterworth_lowpass_filter_tool():
-    def butterworth_low_pass(f, Z, n):
-        id_of_scheme = str(uuid.uuid4())[:4]
-
-        netlist = []
-
-
-        num_of_Ls = 0
-        num_of_Cs = 0
-
-        # Вычисляем коэффициенты Баттерворта g_k
-        g = [2 * math.sin((2 * k - 1) * math.pi / (2 * n)) for k in range(1, n + 1)]
-
-        # Вычисляем значения L и C
-        for k in range(n):
-            if k % 2 == 0:
-                # Расчет конденсатора
-                C = g[k] / (2 * math.pi * f * Z)
-                node = 2 + num_of_Cs
-                netlist.append(f"C N_{id_of_scheme}_{node:03} 0 {C}")
-                num_of_Cs += 1
-            else:
-                # Расчет катушки индуктивности
-                L = (Z * g[k]) / (2 * math.pi * f)
-                node = 2 + num_of_Ls
-                nodeplus1 = node + 1
-                netlist.append(f"L N_{id_of_scheme}_{node:03} N_{id_of_scheme}_{nodeplus1:03} {L}")
-                num_of_Ls += 1
-
-        netlist.extend([
-            f"R N_{id_of_scheme}_002 N_{id_of_scheme}_001 {Z}",
-            f"R N_{id_of_scheme}_{(num_of_Cs+1):03} N_{id_of_scheme}_{(num_of_Cs+2):03} {Z}",
-        ])
-
-        for i in range(len(netlist)):
-            netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_001", "INPUT_NODE")
-            netlist[i] = netlist[i].replace(f"N_{id_of_scheme}_{(num_of_Cs+2):03}", "OUTPUT_NODE")
-
-        return text_to_base64("\n".join(netlist))
-
-    class GetNetlistInput(BaseModel):
-        f: float = Field(description="Частота среза, Гц")
-        Z: float = Field(description="Характеристическое сопротивление, Ом")
-        n: int = Field(description="Количество реактивных элементов (порядок фильтра)")
-
-    return StructuredTool.from_function(
-        name="get_netlist_b64_for_butterworth_lowpass_filter",
-        description="Возвращает base64 репрезентацию netlist для фильтра низких частот Баттерворта.",
-        args_schema=GetNetlistInput,
-        func=butterworth_low_pass
-    )
-
