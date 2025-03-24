@@ -3,7 +3,7 @@ from functools import partial
 
 from langchain_community.tools import HumanInputRun
 from langchain_community.vectorstores import FAISS
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
 from telebot import TeleBot, StateMemoryStorage
@@ -104,7 +104,7 @@ def handle_conversation_message(message: Message, bot: TeleBot,
                                 known_circuits_names_str: str, state: StateContext):
     print(f"Получили сообщение, будучи в диалоге. {state.get()}")
     with state.data() as data:
-        data["messages"].append({"role": "user", "content": message.text})
+        data["messages"].append(HumanMessage(message.text))
     answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
 
 
@@ -113,7 +113,7 @@ def handle_conversation_voice_message(message: Message, bot: TeleBot,
                                       known_circuits_names_str: str, state: StateContext):
     print(f"Получили голосовое сообщение, будучи в диалоге. {state.get()}")
     with state.data() as data:
-        data["messages"].append({"role": "user", "content": voice_message_to_text(message, bot)})
+        data["messages"].append(HumanMessage(voice_message_to_text(message, bot)))
     answer_in_conversation(message, bot, llm, netlists_descriptions_vector_store, known_circuits_names_str, state)
 
 

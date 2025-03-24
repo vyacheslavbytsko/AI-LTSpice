@@ -134,13 +134,13 @@ def combine_netlists_b64s_tool(llm):
 
 
 def apply_parameters_to_netlist_b64_tool(llm):
-    def apply_parameters_to_netlist_b64(llm, netlist, description):
+    def apply_parameters_to_netlist_b64(netlist, description):
         netlist_str = base64.b64decode(netlist.encode("utf-8")).decode("utf-8")
 
         messages = [
             HumanMessage(
                 f"Мой друг составил netlist:\n\n"
-                f"{netlist}\n\nПожалуйста, проверь, "
+                f"{netlist_str}\n\nПожалуйста, проверь, "
                 f"что он соответствует описанию: \"{description}\". "
                 f"Если он не соответствует описанию, измени netlist "
                 f"и выведи новый. Если соответствует - просто "
@@ -159,17 +159,15 @@ def apply_parameters_to_netlist_b64_tool(llm):
 
         return base64.b64encode(response.content.encode("utf-8")).decode("utf-8")
 
-    return Tool(
+    class ApplyParametersInput(BaseModel):
+        netlist: str = Field(description="A base64 representation of combined netlist")
+        description: str = Field(description="Initial description of circuit user wants")
+
+    return StructuredTool.from_function(
+        func=apply_parameters_to_netlist_b64,
+        args_schema=ApplyParametersInput,
         name="apply_parameters_to_netlist_b64",
-        description="Given the base64 representation of combined netlist, applies parameters from initial description and return base64 representation of final netlist.\n"
-                    "\n"
-                    "Args:\n"
-                    "   netlist (str): A base64 representation of combined netlist\n"
-                    "   description (str): Initial description of circuit user wants.\n"
-                    "\n"
-                    "Returns:\n"
-                    "   str: A base64 representation of FINAL netlist. You can now convert it to .asc file.",
-        func=lambda netlist, description: apply_parameters_to_netlist_b64(llm, netlist, description)
+        description="Given the base64 representation of combined netlist (only one!), applies parameters from initial description and returns base64 representation of final netlist."
     )
 
 

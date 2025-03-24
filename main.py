@@ -16,11 +16,11 @@ os.environ["GROQ_API_KEY"] = groq_key
 rate_limiter = get_rate_limiter()
 model = "llama3-70b-8192"
 llm = ChatGroq(model=model, temperature=0.5)
-llm_limited = ChatGroq(model=model, temperature=0.5, rate_limiter=rate_limiter)
+#llm_limited = ChatGroq(model=model, temperature=0.5, rate_limiter=rate_limiter)
 
 make_netlists()
 known_circuits_names_str = get_known_circuits_names_str()
-netlists_descriptions = get_netlists_descriptions(llm_limited)
+netlists_descriptions = get_netlists_descriptions(llm)
 split_netlists_descriptions = get_split_netlists_descriptions(netlists_descriptions)
 netlists_descriptions_vector_store = get_netlists_descriptions_vector_store(split_netlists_descriptions)
 
@@ -41,4 +41,4 @@ system_message = SystemMessage("Ты инженер LTSpice. Спроси у п�
                                "сделал неверно, не стесняйся использовать инструменты ещё раз. "
                                "Разговаривай с пользователем на русском языке.")
 
-start_tg_bot(tg_token, llm_limited, netlists_descriptions_vector_store, system_message, known_circuits_names_str)
+start_tg_bot(tg_token, llm, netlists_descriptions_vector_store, system_message, known_circuits_names_str)
