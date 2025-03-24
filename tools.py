@@ -390,7 +390,6 @@ def get_netlist_b64_for_diode_bridge_tool():
             f"D V_MINUS_NODE OUTPUT_NODE D",
             f"D 0 INPUT_NODE D",
             f"C OUTPUT_NODE 0 100u",
-            f"R OUTPUT_NODE 0 250",
             ".model D D",
             ".lib C:\\users\\vyacheslav\\AppData\\Local\\LTspice\\lib\\cmp\\standard.dio"
         ]
@@ -491,6 +490,8 @@ def finalize_netlist_b64_tool():
         flag_for_v_minus = False
 
         for line in old_netlist:
+            if line == "":
+                continue
             if "V_MINUS_NODE" in line:
                 flag_for_v_minus = True
             if line.startswith("C"):
